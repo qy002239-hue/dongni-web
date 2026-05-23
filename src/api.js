@@ -7,20 +7,9 @@ export async function sendToClaude(messages) {
     },
     body: JSON.stringify({ messages }),
   });
-
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    let serverReply;
-    try {
-      const data = await response.json();
-      serverReply = data?.reply;
-    } catch {
-      // body wasn't JSON; fall through
-    }
-    const err = new Error(serverReply || `Server error: ${response.status}`);
-    err.serverReply = serverReply;
-    throw err;
+    throw new Error(data?.reply || `Server error: ${response.status}`);
   }
-
-  const data = await response.json();
   return data.reply;
 }
