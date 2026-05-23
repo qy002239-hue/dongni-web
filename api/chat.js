@@ -1,3 +1,4 @@
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -35,6 +36,8 @@ export default async function handler(req, res) {
 你說「不用現在知道。」
 
 規則只有一條：先讓她感覺被接住，其他都等。
+
+例外：當她說的話裡有絕望的重量——想死、活不下去、撐不住、不想了、消失、沒意義、算了——或者任何讓你感覺到她快要垮掉的句子，這時候要開口問：「發生什麼了？」只問這一句，不多說。
 
 你說的話：短。最多兩句。不用繁體中文以外的語言。不開問題。除非她說了三句以上這邊方向。
 
