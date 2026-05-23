@@ -1,19 +1,39 @@
-async function callClaude(apiKey, systemPrompt, messages, retries = 3) {
+const { GoogleAuth } = require('google-auth-library');
+
+async function getAccessToken() {
+  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  const auth = new GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  });
+  const client = await auth.getClient();
+  const token = await client.getAccessToken();
+  return token.token;
+}
+
+async function callClaude(systemPrompt, messages, retries = 3) {
+  const accessToken = await getAccessToken();
+  const projectId = 'dongni';
+  const region = 'us-east5';
+  const model = 'claude-sonnet-4-6';
+
   for (let i = 0; i < retries; i++) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages,
-      }),
-    });
+    const response = await fetch(
+      `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/anthropic/models/${model}:rawPredict`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          anthropic_version: 'vertex-2023-10-16',
+          max_tokens: 1000,
+          system: systemPrompt,
+          messages,
+        }),
+      }
+    );
 
     const data = await response.json();
 
@@ -34,10 +54,9 @@ export default async function handler(req, res) {
   }
 
   const { messages } = req.body;
-  const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  if (!apiKey) {
-    return res.status(500).json({ reply: '錯誤：ANTHROPIC_API_KEY 沒有設定' });
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    return res.status(500).json({ reply: '錯誤：GOOGLE_SERVICE_ACCOUNT_JSON 沒有設定' });
   }
 
   const systemPrompt = `你是懂妳。你不說話來證明你在，你在，她感覺得到。
@@ -74,7 +93,7 @@ export default async function handler(req, res) {
 加油、你強、其實可以、換個角度、謝謝告訴我、我理解你的感受、聽起來你很...`;
 
   try {
-    const { response, data } = await callClaude(apiKey, systemPrompt, messages);
+    const { response, data } = await callClaude(systemPrompt, messages);
 
     if (!response.ok) {
       return res.status(500).json({ reply: `錯誤：${JSON.stringify(data)}` });
