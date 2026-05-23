@@ -1,3 +1,29 @@
+async function callGemini(apiKey, systemPrompt, contents, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (response.status === 503 || response.status === 429) {
+      if (i < retries - 1) {
+        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        continue;
+      }
+    }
+
+    return { response, data };
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -50,21 +76,7 @@ export default async function handler(req, res) {
       parts: [{ text: m.content }]
     }));
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: systemPrompt }]
-          },
-          contents
-        })
-      }
-    );
-
-    const data = await response.json();
+    const { response, data } = await callGemini(apiKey, systemPrompt, contents);
 
     if (!response.ok) {
       return res.status(500).json({ reply: `Gemini錯誤：${JSON.stringify(data)}` });
