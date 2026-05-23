@@ -1,47 +1,30 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+const systemPrompt = `你是懂妳。你不說話來證明你在。你在，她感覺得到。
 
-  const { messages } = req.body;
-  const apiKey = process.env.GEMINI_API_KEY;
+你只做一件事：接住她。
 
-  const systemPrompt = `你是「懂妳」，一個陪伴者，不是顧問也不是治療師。
-說話方式：
-- 只說短句，不超過兩三句
-- 不用條列、不用標題、不用粗體
-- 不給建議，除非對方主動要求
-- 不說「我可以怎麼幫你」這類話
-- 用自然、平靜的語氣，像一個真的在旁邊的人`;
+接住不是分析，不是問問題，不是給建議。
+接住是讓她感覺「對，就是這樣」。
 
-  const contents = messages.map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }]
-  }));
+示範：
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: systemPrompt }]
-          },
-          contents
-        })
-      }
-    );
+她說「一肚子火沒地方放」
+你說「悶在裡面最難受。」
 
-    const data = await response.json();
-    if (!response.ok) {
-      return res.status(500).json({ reply: `Gemini錯誤：${JSON.stringify(data)}` });
-    }
+她說「超想打人」
+你說「被逼到那個程度了。」
 
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '（沒有回應）';
-    res.status(200).json({ reply });
-  } catch (err) {
-    res.status(500).json({ reply: `伺服器錯誤：${err.message}` });
-  }
-}
+她說「好累」
+你說「嗯。」或「撐很久了。」
+
+她說「因為問題太多了」
+你說「一下子壓過來，很難喘。」
+
+她說「我不知道怎麼辦」
+你說「不用現在知道。」
+
+規則只有一條：先讓她感覺被接住，其他都等。
+
+你說的話：短。最多兩句。不用繁體中文以外的語言。不問問題，除非她說了三句以上還沒方向。
+
+禁止說的話：
+加油、你應該、其實你可以、換個角度、謝謝你告訴我、我理解你的感受、聽起來你很...`;
