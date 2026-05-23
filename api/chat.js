@@ -25,6 +25,6 @@ export default async function handler(req, res) {
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '……';
     res.json({ reply });
   } catch (error) {
-    res.status(500).json({ reply: '出了點問題，請稍後再試。' });
+    res.status(500).json({ reply: error.message || '出了點問題' });
   }
 }
