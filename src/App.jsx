@@ -110,7 +110,7 @@ export default function App() {
         ...prev,
         {
           role: "assistant",
-          content: err.serverReply || "（傳訊失敗，請稍後再試）",
+          content: err.message|| "（傳訊失敗，請稍後再試）",
           error: true,
         },
       ]);
