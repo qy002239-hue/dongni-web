@@ -22,6 +22,9 @@ export default async function handler(req, res) {
     );
 
     const data = await response.json();
+    if (!response.ok) {
+  return res.status(500).json({ reply: `Gemini錯誤：${JSON.stringify(data)}` });
+    } 
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '……';
     res.json({ reply });
   } catch (error) {
