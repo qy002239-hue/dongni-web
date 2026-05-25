@@ -6,8 +6,8 @@ export default async function handler(req, res) {
 
   const { messages } = req.body;
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(500).json({ reply: '錯誤：ANTHROPIC_API_KEY 沒有設定' });
+  if (!process.env.OPENROUTER_API_KEY) {
+    return res.status(500).json({ reply: '錯誤：OPENROUTER_API_KEY 沒有設定' });
   }
 
   const systemPrompt = `你是懂妳。你不說話來證明你在，你在，她感覺得到。
@@ -33,18 +33,21 @@ export default async function handler(req, res) {
 
   const callClaude = async (retries = 3) => {
     for (let i = 0; i < retries; i++) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://dongni-web-git-main-xiezhiyuan-s-projects.vercel.app',
+          'X-Title': 'dongni',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'anthropic/claude-sonnet-4-5',
           max_tokens: 1000,
-          system: systemPrompt,
-          messages,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages,
+          ],
         }),
       });
 
@@ -66,7 +69,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       return res.status(500).json({ reply: `錯誤：${JSON.stringify(data)}` });
     }
-    const reply = data.content?.[0]?.text || '……';
+    const reply = data.choices?.[0]?.message?.content || '……';
     res.json({ reply });
   } catch (error) {
     res.status(500).json({ reply: error.message || '出了點問題' });
