@@ -27,8 +27,6 @@ function loadMessages() {
 const HISTORY_LIMIT = 20;
 
 function buildHistory(messages) {
-  // Walk messages, dropping each error bubble AND the user message that
-  // triggered it — otherwise we send "...user, user..." to Claude.
   const cleaned = [];
   for (const m of messages) {
     if (m.error) {
@@ -39,18 +37,10 @@ function buildHistory(messages) {
     }
     cleaned.push({ role: m.role, content: m.content });
   }
-
-  // Claude requires the first message to be from the user — strip the seed
-  // greeting (and any stray leading assistant turns).
   while (cleaned.length && cleaned[0].role !== "user") {
     cleaned.shift();
   }
-
-  // Cap AFTER trimming so we don't waste budget on the stripped seed.
   const recent = cleaned.slice(-HISTORY_LIMIT);
-
-  // Defensive: if any consecutive same-role turns slipped through, merge them
-  // so Claude sees clean alternation.
   const alternating = [];
   for (const m of recent) {
     const last = alternating[alternating.length - 1];
@@ -60,7 +50,6 @@ function buildHistory(messages) {
       alternating.push({ ...m });
     }
   }
-
   return alternating;
 }
 
@@ -110,7 +99,7 @@ export default function App() {
         ...prev,
         {
           role: "assistant",
-          content: err.message|| "（傳訊失敗，請稍後再試）",
+          content: err.message || "（傳訊失敗，請稍後再試）",
           error: true,
         },
       ]);
@@ -245,13 +234,8 @@ export default function App() {
                     : isUser
                     ? "1px solid rgba(56, 189, 248, 0.42)"
                     : "1px solid rgba(148, 163, 184, 0.3)",
-                  color: isError
-                    ? "#fecaca"
-                    : isUser
-                    ? "#e0f2fe"
-                    : "#f1f5f9",
-                  boxShadow:
-                    "0 2px 12px rgba(0, 0, 0, 0.35)",
+                  color: isError ? "#fecaca" : isUser ? "#e0f2fe" : "#f1f5f9",
+                  boxShadow: "0 2px 12px rgba(0, 0, 0, 0.35)",
                   padding: "12px 16px",
                   borderRadius: "18px",
                   maxWidth: "min(80%, 560px)",
@@ -270,13 +254,7 @@ export default function App() {
         })}
 
         {isTyping && (
-          <div
-            style={{
-              marginBottom: "14px",
-              display: "flex",
-              justifyContent: "flex-start",
-            }}
-          >
+          <div style={{ marginBottom: "14px", display: "flex", justifyContent: "flex-start" }}>
             <div
               style={{
                 background: "rgba(30, 50, 78, 0.88)",
@@ -316,11 +294,7 @@ export default function App() {
           className="dongni-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              sendMessage();
-            }
-          }}
+          onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
           disabled={isTyping}
           placeholder="想說什麼……"
           autoComplete="off"
@@ -340,23 +314,13 @@ export default function App() {
             WebkitBackdropFilter: "blur(10px)",
           }}
         />
-
         <button
           onClick={sendMessage}
           disabled={isTyping || !input.trim()}
           style={{
-            background:
-              isTyping || !input.trim()
-                ? "rgba(71, 85, 105, 0.25)"
-                : "rgba(56, 189, 248, 0.18)",
-            color:
-              isTyping || !input.trim()
-                ? "rgba(203, 213, 225, 0.4)"
-                : "#e0f2fe",
-            border:
-              isTyping || !input.trim()
-                ? "1px solid rgba(71, 85, 105, 0.3)"
-                : "1px solid rgba(56, 189, 248, 0.35)",
+            background: isTyping || !input.trim() ? "rgba(71, 85, 105, 0.25)" : "rgba(56, 189, 248, 0.18)",
+            color: isTyping || !input.trim() ? "rgba(203, 213, 225, 0.4)" : "#e0f2fe",
+            border: isTyping || !input.trim() ? "1px solid rgba(71, 85, 105, 0.3)" : "1px solid rgba(56, 189, 248, 0.35)",
             borderRadius: "999px",
             padding: "14px 22px",
             cursor: isTyping || !input.trim() ? "not-allowed" : "pointer",
@@ -376,13 +340,8 @@ export default function App() {
           0%, 80%, 100% { opacity: 0.2; }
           40% { opacity: 1; }
         }
-        .dongni-input::placeholder {
-          color: #64748b;
-          letter-spacing: 0.02em;
-        }
-        .dongni-input:focus {
-          border-color: rgba(56, 189, 248, 0.4);
-        }
+        .dongni-input::placeholder { color: #64748b; letter-spacing: 0.02em; }
+        .dongni-input:focus { border-color: rgba(56, 189, 248, 0.4); }
       `}</style>
     </div>
   );

@@ -9,9 +9,11 @@ const PAGES = [
 ];
 
 const SWIPE_THRESHOLD = 60;
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export default function Onboarding({ onDone }) {
   const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(false);
   const dragStartX = useRef(null);
 
   const goNext = () => setPage((p) => Math.min(p + 1, PAGES.length - 1));
@@ -27,6 +29,14 @@ export default function Onboarding({ onDone }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [onDone]);
 
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    document.head.appendChild(script);
+    return () => document.head.removeChild(script);
+  }, []);
+
   const handlePointerDown = (e) => {
     const x = e.touches?.[0]?.clientX ?? e.clientX;
     if (typeof x === "number") dragStartX.current = x;
@@ -35,14 +45,31 @@ export default function Onboarding({ onDone }) {
   const handlePointerUp = (e) => {
     if (dragStartX.current === null) return;
     const endX = e.changedTouches?.[0]?.clientX ?? e.clientX;
-    if (typeof endX !== "number") {
-      dragStartX.current = null;
-      return;
-    }
+    if (typeof endX !== "number") { dragStartX.current = null; return; }
     const delta = endX - dragStartX.current;
     if (delta > SWIPE_THRESHOLD) goPrev();
     else if (delta < -SWIPE_THRESHOLD) goNext();
     dragStartX.current = null;
+  };
+
+  const handleGoogleLogin = () => {
+    setLoading(true);
+    window.google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: "openid email profile",
+      callback: async (tokenResponse) => {
+        if (tokenResponse.error) { setLoading(false); return; }
+        const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        const user = await res.json();
+        localStorage.setItem("dongni_user_id", `google_${user.sub}`);
+        localStorage.setItem("dongni_user_name", user.name || "");
+        localStorage.setItem("dongni_user_email", user.email || "");
+        setLoading(false);
+        onDone();
+      },
+    }).requestAccessToken();
   };
 
   const isLast = page === PAGES.length - 1;
@@ -50,165 +77,51 @@ export default function Onboarding({ onDone }) {
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        margin: 0,
-        color: "#e2e8f0",
-        overflow: "hidden",
-        userSelect: "none",
-        textAlign: "center",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        backgroundImage: `
-          linear-gradient(180deg, rgba(2, 12, 24, 0.45) 0%, rgba(4, 18, 32, 0.65) 55%, rgba(2, 12, 24, 0.55) 100%),
-          url('/ocean.jpg')
-        `,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
+        position: "fixed", inset: 0, margin: 0, color: "#e2e8f0",
+        overflow: "hidden", userSelect: "none", textAlign: "center",
+        display: "flex", flexDirection: "column", justifyContent: "center",
+        backgroundImage: `linear-gradient(180deg, rgba(2, 12, 24, 0.45) 0%, rgba(4, 18, 32, 0.65) 55%, rgba(2, 12, 24, 0.55) 100%), url('/ocean.jpg')`,
+        backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat",
       }}
-      onMouseDown={handlePointerDown}
-      onMouseUp={handlePointerUp}
-      onTouchStart={handlePointerDown}
-      onTouchEnd={handlePointerUp}
+      onMouseDown={handlePointerDown} onMouseUp={handlePointerUp}
+      onTouchStart={handlePointerDown} onTouchEnd={handlePointerUp}
     >
-      <button
-        onClick={onDone}
-        style={{
-          position: "absolute",
-          top: "calc(16px + env(safe-area-inset-top))",
-          right: "calc(16px + env(safe-area-inset-right))",
-          background: "transparent",
-          color: "#7d96ad",
-          border: "none",
-          fontSize: "14px",
-          letterSpacing: "0.1em",
-          cursor: "pointer",
-          padding: "10px 14px",
-          zIndex: 3,
-        }}
-      >
+      <button onClick={onDone} style={{ position: "absolute", top: "calc(16px + env(safe-area-inset-top))", right: "calc(16px + env(safe-area-inset-right))", background: "transparent", color: "#7d96ad", border: "none", fontSize: "14px", letterSpacing: "0.1em", cursor: "pointer", padding: "10px 14px", zIndex: 3 }}>
         略過
       </button>
 
-      <div
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "100%",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            width: `${PAGES.length * 100}%`,
-            transform: `translateX(-${page * (100 / PAGES.length)}%)`,
-            transition: "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        >
+      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "100%", overflow: "hidden" }}>
+        <div style={{ display: "flex", width: `${PAGES.length * 100}%`, transform: `translateX(-${page * (100 / PAGES.length)}%)`, transition: "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)" }}>
           {PAGES.map((p, i) => (
-            <div
-              key={i}
-              style={{
-                flex: `0 0 ${100 / PAGES.length}%`,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "0 40px",
-                textAlign: "center",
-                opacity: i === page ? 1 : 0.4,
-                transition: "opacity 0.55s ease",
-              }}
-            >
-              <h1
-                style={{
-                  fontSize: "clamp(28px, 7vw, 58px)",
-                  fontWeight: 300,
-                  letterSpacing: "0.08em",
-                  margin: 0,
-                  marginBottom: "24px",
-                  lineHeight: 1.4,
-                  color: "#f1f5f9",
-                }}
-              >
-                {p.title}
-              </h1>
-              <p
-                style={{
-                  fontSize: "clamp(15px, 4vw, 19px)",
-                  color: "#94a3b8",
-                  maxWidth: "520px",
-                  lineHeight: 1.9,
-                  fontWeight: 300,
-                  letterSpacing: "0.04em",
-                  margin: 0,
-                }}
-              >
-                {p.subtitle}
-              </p>
+            <div key={i} style={{ flex: `0 0 ${100 / PAGES.length}%`, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 40px", textAlign: "center", opacity: i === page ? 1 : 0.4, transition: "opacity 0.55s ease" }}>
+              <h1 style={{ fontSize: "clamp(28px, 7vw, 58px)", fontWeight: 300, letterSpacing: "0.08em", margin: 0, marginBottom: "24px", lineHeight: 1.4, color: "#f1f5f9" }}>{p.title}</h1>
+              <p style={{ fontSize: "clamp(15px, 4vw, 19px)", color: "#94a3b8", maxWidth: "520px", lineHeight: 1.9, fontWeight: 300, letterSpacing: "0.04em", margin: 0 }}>{p.subtitle}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div
-        style={{
-          position: "absolute",
-          bottom: "calc(40px + env(safe-area-inset-bottom))",
-          left: "env(safe-area-inset-left)",
-          right: "env(safe-area-inset-right)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "24px",
-        }}
-      >
+      <div style={{ position: "absolute", bottom: "calc(40px + env(safe-area-inset-bottom))", left: "env(safe-area-inset-left)", right: "env(safe-area-inset-right)", display: "flex", flexDirection: "column", alignItems: "center", gap: "24px" }}>
         <div style={{ display: "flex", gap: "10px" }}>
           {PAGES.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setPage(i)}
-              aria-label={`第 ${i + 1} 頁`}
-              style={{
-                width: i === page ? "28px" : "8px",
-                height: "8px",
-                borderRadius: "4px",
-                background: i === page ? "#cbd5e1" : "#1e3a52",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                transition: "all 0.35s ease",
-              }}
-            />
+            <button key={i} onClick={() => setPage(i)} style={{ width: i === page ? "28px" : "8px", height: "8px", borderRadius: "4px", background: i === page ? "#cbd5e1" : "#1e3a52", border: "none", padding: 0, cursor: "pointer", transition: "all 0.35s ease" }} />
           ))}
         </div>
 
-        <button
-          onClick={isLast ? onDone : goNext}
-          style={{
-            background: isLast
-              ? "rgba(203, 213, 225, 0.12)"
-              : "transparent",
-            color: "#e2e8f0",
-            border: isLast
-              ? "1px solid rgba(203, 213, 225, 0.35)"
-              : "1px solid transparent",
-            borderRadius: "999px",
-            padding: isLast ? "14px 44px" : "14px 24px",
-            fontSize: "15px",
-            letterSpacing: "0.15em",
-            cursor: "pointer",
-            backdropFilter: "blur(8px)",
-            transition: "all 0.35s ease",
-            minWidth: "140px",
-          }}
-        >
-          {isLast ? "開始" : "繼續"}
-        </button>
+        {isLast ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+            <button onClick={handleGoogleLogin} disabled={loading} style={{ background: "rgba(203, 213, 225, 0.12)", color: "#e2e8f0", border: "1px solid rgba(203, 213, 225, 0.35)", borderRadius: "999px", padding: "14px 44px", fontSize: "15px", letterSpacing: "0.15em", cursor: loading ? "wait" : "pointer", backdropFilter: "blur(8px)", transition: "all 0.35s ease", minWidth: "200px" }}>
+              {loading ? "登入中…" : "用 Google 登入"}
+            </button>
+            <button onClick={onDone} style={{ background: "transparent", color: "#64748b", border: "none", fontSize: "13px", letterSpacing: "0.1em", cursor: "pointer", padding: "8px 16px" }}>
+              不登入，直接使用
+            </button>
+          </div>
+        ) : (
+          <button onClick={goNext} style={{ background: "transparent", color: "#e2e8f0", border: "1px solid transparent", borderRadius: "999px", padding: "14px 24px", fontSize: "15px", letterSpacing: "0.15em", cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.35s ease", minWidth: "140px" }}>
+            繼續
+          </button>
+        )}
       </div>
     </div>
   );
