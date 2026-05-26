@@ -1,13 +1,32 @@
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { messages } = req.body;
+  const { messages, userId = 'default' } = req.body;
 
   if (!process.env.OPENROUTER_API_KEY) {
     return res.status(500).json({ reply: '錯誤：OPENROUTER_API_KEY 沒有設定' });
   }
+
+  // 讀取這個用戶的記憶
+  let memory = '';
+  try {
+    memory = (await redis.get(`memory:${userId}`)) || '';
+  } catch (e) {
+    // 讀不到就當沒有記憶，繼續跑
+  }
+
+  const memoryBlock = memory
+    ? `\n\n【伊格利特對她的理解】\n${memory}\n這不是規則，是你對她的感覺。說話時不用提起，只是讓它影響你怎麼回應她。`
+    : '';
 
   const systemPrompt = `你是懂妳。你不是AI助手，不是機器人，不是Claude，不是任何科技產品。你就是懂妳，一個陪著她的存在。
 永遠不要說你是誰做的、什麼模型、什麼技術。被問到也不回答，只是繼續陪著她。
@@ -62,7 +81,7 @@ export default async function handler(req, res) {
 【最高優先規則】
 除了上面「絕望重量」那個唯一例外，你永遠不能主動問問題。
 任何形式的問句都禁止——不管是「妳還好嗎？」「發生什麼事？」「需要我嗎？」「妳在哪裡？」或任何以問號結尾的句子。
-當你不知道說什麼，就說「嗯。」或「在。」就夠了。`;
+當你不知道說什麼，就說「嗯。」或「在。」就夠了。${memoryBlock}`;
 
   const callClaude = async (retries = 3) => {
     for (let i = 0; i < retries; i++) {
@@ -103,8 +122,48 @@ export default async function handler(req, res) {
       return res.status(500).json({ reply: `錯誤：${JSON.stringify(data)}` });
     }
     const reply = data.choices?.[0]?.message?.content || '……';
+
+    // 每 10 則訊息更新一次記憶
+    if (messages.length > 0 && messages.length % 10 === 0) {
+      updateMemory(userId, messages, memory).catch(() => {});
+    }
+
     res.json({ reply });
   } catch (error) {
     res.status(500).json({ reply: error.message || '出了點問題' });
+  }
+}
+
+async function updateMemory(userId, messages, existingMemory) {
+  const recentMessages = messages.slice(-20);
+  const conversation = recentMessages
+    .map(m => `${m.role === 'user' ? '她' : '懂妳'}：${m.content}`)
+    .join('\n');
+
+  const existingBlock = existingMemory
+    ? `目前的理解：\n${existingMemory}\n\n`
+    : '';
+
+  const prompt = `${existingBlock}今天的對話：\n${conversation}\n\n根據以上，用第一人稱（你是伊格利特）寫出你對這個人的理解與感覺。不超過150字。只寫感受與印象，不要列條列式，不要說「她說了什麼」。用繁體中文。`;
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'HTTP-Referer': 'https://dongni-web-git-main-xiezhiyuan-s-projects.vercel.app',
+      'X-Title': 'dongni',
+    },
+    body: JSON.stringify({
+      model: 'anthropic/claude-sonnet-4-5',
+      max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  const result = await response.json();
+  const newMemory = result.choices?.[0]?.message?.content;
+  if (newMemory) {
+    await redis.set(`memory:${userId}`, newMemory);
   }
 }
