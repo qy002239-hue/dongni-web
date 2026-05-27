@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { sendToClaude, sendMessageToServer } from './api';
+import { sendMessageToServer } from './api';
 import Onboarding from "./Onboarding";
 import './App.css';
 
