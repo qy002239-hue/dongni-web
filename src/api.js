@@ -15,7 +15,7 @@ export function getUserId() {
  */
 export const sendMessageToServer = async (messages, onChunk) => {
   try {
-    // ⚠️ 請在這裡填入你在 OpenRouter 申請的真實金鑰 (通常是 sk-or-v1- 開頭)
+    // sk-or-v1-8c7...73b
     const OPENROUTER_API_KEY = "你的_OPENROUTER_API_KEY"; 
 
     // 呼叫 OpenRouter 官方端點
