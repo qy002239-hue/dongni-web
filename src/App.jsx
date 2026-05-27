@@ -1,364 +1,157 @@
-import { useState, useEffect, useRef } from "react";
-import { sendToClaude } from "./api";
+import React, { useState, useRef, useEffect } from 'react';
+import { sendToClaude } from './api';
 import Onboarding from "./Onboarding";
+import './App.css';
 
-const STORAGE_KEY = "dongni.messages";
-const ONBOARDED_KEY = "dongni.onboarded";
-
+// 預設的引導歡迎詞（維持你原本的設定）
 const DEFAULT_MESSAGES = [
   {
     role: "assistant",
-    content: "妳今天還好嗎……",
-  },
+    content: "妳好，我是〔懂妳〕。\n今天，怎麼了？"
+  }
 ];
 
-function loadMessages() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_MESSAGES;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_MESSAGES;
-    return parsed;
-  } catch {
-    return DEFAULT_MESSAGES;
-  }
-}
-
-const HISTORY_LIMIT = 20;
-
-function buildHistory(messages) {
-  const cleaned = [];
-  for (const m of messages) {
-    if (m.error) {
-      if (cleaned.length && cleaned[cleaned.length - 1].role === "user") {
-        cleaned.pop();
+function App() {
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem("dongni_messages");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.length > 0 ? parsed : DEFAULT_MESSAGES;
       }
-      continue;
+    } catch (e) {
+      console.error("讀取歷史紀錄失敗", e);
     }
-    cleaned.push({ role: m.role, content: m.content });
-  }
-  while (cleaned.length && cleaned[0].role !== "user") {
-    cleaned.shift();
-  }
-  const recent = cleaned.slice(-HISTORY_LIMIT);
-  const alternating = [];
-  for (const m of recent) {
-    const last = alternating[alternating.length - 1];
-    if (last && last.role === m.role) {
-      last.content = `${last.content}\n\n${m.content}`;
-    } else {
-      alternating.push({ ...m });
-    }
-  }
-  return alternating;
-}
+    return DEFAULT_MESSAGES;
+  });
 
-export default function App() {
-  const [onboarded, setOnboarded] = useState(
-    () => localStorage.getItem(ONBOARDED_KEY) === "true"
-  );
-  const [messages, setMessages] = useState(loadMessages);
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const scrollRef = useRef(null);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem("dongni_onboarding_completed");
+  });
+  
+  const chatEndRef = useRef(null);
 
-  const finishOnboarding = () => {
-    localStorage.setItem(ONBOARDED_KEY, "true");
-    setOnboarded(true);
-  };
-
+  // 當對話更新時，同步存入本機快取並捲動到最下方
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    localStorage.setItem("dongni_messages", JSON.stringify(messages));
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // 新手引導完成時的觸發（維持你原本的邏輯）
+  const handleOnboardingComplete = (answers) => {
+    localStorage.setItem("dongni_onboarding_completed", "true");
+    setShowOnboarding(false);
+  };
+
+  // 清除對話紀錄
+  const handleClearChat = () => {
+    if (window.confirm("確定要清除所有傾聽紀錄嗎？")) {
+      setMessages(DEFAULT_MESSAGES);
+      localStorage.removeItem("dongni_messages");
     }
-  }, [messages, isTyping]);
+  };
 
-  if (!onboarded) {
-    return <Onboarding onDone={finishOnboarding} />;
-  }
+  // 重置新手引導
+  const handleResetOnboarding = () => {
+    localStorage.removeItem("dongni_onboarding_completed");
+    setShowOnboarding(true);
+  };
 
-  const sendMessage = async () => {
-    const text = input.trim();
-    if (!text || isTyping) return;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
 
-    const nextMessages = [...messages, { role: "user", content: text }];
-    setMessages(nextMessages);
-    setInput("");
-    setIsTyping(true);
+    const userMessage = { role: 'user', content: input };
+    // 過濾掉空的回應，確保對話紀錄乾淨
+    const currentMessages = messages.filter(m => m.content.disabled !== true);
+    const newMessages = [...currentMessages, userMessage];
+    
+    setMessages(newMessages);
+    setInput('');
+    setIsLoading(true);
+
+    // 在畫面上先建立一個空的 AI 回應框，準備接收流出的文字
+    const aiMessageIndex = newMessages.length;
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
-      const history = buildHistory(nextMessages);
-      const reply = await sendToClaude(history);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: err.message || "（傳訊失敗，請稍後再試）",
-          error: true,
-        },
-      ]);
-      console.error(err);
+      // 呼叫流式傳輸轉接頭，一字一字倒水進去
+      await sendToClaude(newMessages, (chunk) => {
+        setMessages(prev => {
+          const updated = [...prev];
+          if (updated[aiMessageIndex]) {
+            updated[aiMessageIndex].content += chunk;
+          }
+          return updated;
+        });
+      });
+    } catch (error) {
+      console.error("對話出錯:", error);
+      setMessages(prev => {
+        const updated = [...prev];
+        if (updated[aiMessageIndex]) {
+          updated[aiMessageIndex].content = "（抱歉，我剛剛稍微分神了，可以再對我說一次嗎...）";
+        }
+        return updated;
+      });
     } finally {
-      setIsTyping(false);
+      setIsLoading(false);
     }
   };
 
-  const clearChat = () => {
-    setMessages(DEFAULT_MESSAGES);
-  };
-
-  const resetOnboarding = () => {
-    localStorage.removeItem(ONBOARDED_KEY);
-    location.reload();
-  };
+  // 如果新手引導還沒完成，顯示 Onboarding 畫面
+  if (showOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        height: "100dvh",
-        display: "flex",
-        flexDirection: "column",
-        color: "#e2e8f0",
-        backgroundColor: "#03101e",
-        backgroundImage: `
-          linear-gradient(180deg, rgba(2, 12, 24, 0.62) 0%, rgba(4, 18, 32, 0.78) 55%, rgba(2, 12, 24, 0.7) 100%),
-          url('/ocean.jpg')
-        `,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div
-        style={{
-          padding:
-            "calc(16px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left))",
-          borderBottom: "1px solid rgba(148, 163, 184, 0.10)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "12px",
-          background: "rgba(2, 12, 24, 0.55)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            color: "#f8fafc",
-            fontSize: "clamp(20px, 5.5vw, 26px)",
-            fontWeight: 500,
-            letterSpacing: "0.14em",
-            textShadow: "0 0 24px rgba(56, 189, 248, 0.25)",
-          }}
-        >
-          懂妳
-        </span>
-        <div style={{ display: "flex", gap: "8px" }}>
-          {import.meta.env.DEV && (
-            <button
-              onClick={resetOnboarding}
-              title="DEV — 重新顯示 onboarding"
-              style={{
-                background: "transparent",
-                color: "#7d96ad",
-                border: "1px solid rgba(148, 163, 184, 0.2)",
-                borderRadius: "999px",
-                padding: "6px 14px",
-                cursor: "pointer",
-                fontSize: "13px",
-                letterSpacing: "0.08em",
-              }}
-            >
-              重看引導
-            </button>
-          )}
-          <button
-            onClick={clearChat}
-            style={{
-              background: "transparent",
-              color: "#7d96ad",
-              border: "1px solid rgba(148, 163, 184, 0.2)",
-              borderRadius: "999px",
-              padding: "6px 14px",
-              cursor: "pointer",
-              fontSize: "13px",
-              letterSpacing: "0.08em",
-            }}
-          >
-            清除對話
-          </button>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-stone-900 text-stone-200 p-4 font-light">
+      <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
+        
+        {/* 控制按鈕列 */}
+        <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
+          <button onClick={handleResetOnboarding} className="hover:text-stone-300 transition-colors">重置檢測</button>
+          <div className="text-base text-stone-400 font-normal tracking-[0.25em]">〔 懂 妳 〕</div>
+          <button onClick={handleClearChat} className="hover:text-stone-300 transition-colors">清除紀錄</button>
         </div>
-      </div>
 
-      <div
-        ref={scrollRef}
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
-          overscrollBehavior: "contain",
-          padding:
-            "20px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left))",
-        }}
-      >
-        {messages.map((msg, index) => {
-          const isUser = msg.role === "user";
-          const isError = !!msg.error;
-          return (
-            <div
-              key={index}
-              style={{
-                marginBottom: "14px",
-                display: "flex",
-                justifyContent: isUser ? "flex-end" : "flex-start",
-              }}
+        {/* 對話留白渲染區域 */}
+        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
+          {messages.map((msg, idx) => (
+            <div 
+              key={idx} 
+              className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}
             >
-              <div
-                style={{
-                  background: isError
-                    ? "rgba(127, 29, 29, 0.7)"
-                    : isUser
-                    ? "rgba(34, 122, 158, 0.55)"
-                    : "rgba(30, 50, 78, 0.88)",
-                  border: isError
-                    ? "1px solid rgba(220, 38, 38, 0.45)"
-                    : isUser
-                    ? "1px solid rgba(56, 189, 248, 0.42)"
-                    : "1px solid rgba(148, 163, 184, 0.3)",
-                  color: isError ? "#fecaca" : isUser ? "#e0f2fe" : "#f1f5f9",
-                  boxShadow: "0 2px 12px rgba(0, 0, 0, 0.35)",
-                  padding: "12px 16px",
-                  borderRadius: "18px",
-                  maxWidth: "min(80%, 560px)",
-                  lineHeight: "1.7",
-                  whiteSpace: "pre-wrap",
-                  fontSize: "15px",
-                  letterSpacing: "0.02em",
-                  backdropFilter: "blur(8px)",
-                  WebkitBackdropFilter: "blur(8px)",
-                }}
-              >
-                {msg.content}
-              </div>
+              {msg.role === 'user' ? (
+                <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide shadow-sm">
+                  {msg.content}
+                </div>
+              ) : (
+                <div className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] transition-all duration-300 animate-fade-in">
+                  {msg.content || (isLoading && idx === messages.length - 1 ? "正在聽妳說..." : "")}
+                </div>
+              )}
             </div>
-          );
-        })}
+          ))}
+          <div ref={chatEndRef} />
+        </div>
 
-        {isTyping && (
-          <div style={{ marginBottom: "14px", display: "flex", justifyContent: "flex-start" }}>
-            <div
-              style={{
-                background: "rgba(30, 50, 78, 0.88)",
-                border: "1px solid rgba(148, 163, 184, 0.3)",
-                padding: "12px 18px",
-                borderRadius: "18px",
-                display: "flex",
-                gap: "5px",
-                alignItems: "center",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-                boxShadow: "0 2px 12px rgba(0, 0, 0, 0.35)",
-              }}
-            >
-              <Dot delay="0s" />
-              <Dot delay="0.2s" />
-              <Dot delay="0.4s" />
-            </div>
-          </div>
-        )}
+        {/* 底部輸入框 */}
+        <form onSubmit={handleSubmit} className="py-4">
+          <input
+            className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 focus:outline-none focus:border-stone-500 text-center text-sm tracking-wider shadow-inner transition-colors"
+            value={input}
+            placeholder="跟〔懂妳〕聊聊心裡的矛盾..."
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isLoading}
+          />
+        </form>
+        
       </div>
-
-      <div
-        style={{
-          padding:
-            "12px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))",
-          borderTop: "1px solid rgba(148, 163, 184, 0.10)",
-          display: "flex",
-          gap: "8px",
-          background: "rgba(2, 12, 24, 0.55)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          flexShrink: 0,
-        }}
-      >
-        <input
-          className="dongni-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
-          disabled={isTyping}
-          placeholder="想說什麼……"
-          autoComplete="off"
-          autoCorrect="off"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            padding: "14px 18px",
-            borderRadius: "999px",
-            border: "1px solid rgba(148, 163, 184, 0.22)",
-            background: "rgba(8, 24, 42, 0.6)",
-            color: "#e2e8f0",
-            outline: "none",
-            fontSize: "16px",
-            letterSpacing: "0.02em",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-          }}
-        />
-        <button
-          onClick={sendMessage}
-          disabled={isTyping || !input.trim()}
-          style={{
-            background: isTyping || !input.trim() ? "rgba(71, 85, 105, 0.25)" : "rgba(56, 189, 248, 0.18)",
-            color: isTyping || !input.trim() ? "rgba(203, 213, 225, 0.4)" : "#e0f2fe",
-            border: isTyping || !input.trim() ? "1px solid rgba(71, 85, 105, 0.3)" : "1px solid rgba(56, 189, 248, 0.35)",
-            borderRadius: "999px",
-            padding: "14px 22px",
-            cursor: isTyping || !input.trim() ? "not-allowed" : "pointer",
-            fontSize: "15px",
-            letterSpacing: "0.12em",
-            transition: "all 0.2s ease",
-            flexShrink: 0,
-            minWidth: "72px",
-          }}
-        >
-          傳送
-        </button>
-      </div>
-
-      <style>{`
-        @keyframes dongni-blink {
-          0%, 80%, 100% { opacity: 0.2; }
-          40% { opacity: 1; }
-        }
-        .dongni-input::placeholder { color: #64748b; letter-spacing: 0.02em; }
-        .dongni-input:focus { border-color: rgba(56, 189, 248, 0.4); }
-      `}</style>
     </div>
   );
 }
 
-function Dot({ delay }) {
-  return (
-    <span
-      style={{
-        width: "7px",
-        height: "7px",
-        borderRadius: "50%",
-        background: "#7d96ad",
-        display: "inline-block",
-        animation: "dongni-blink 1.4s infinite",
-        animationDelay: delay,
-      }}
-    />
-  );
-}
+export default App;
