@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>伊格利特回應測試工具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e6edf3; font-family: sans-serif; padding: 24px; }
+  h1 { font-size: 18px; margin-bottom: 20px; color: #58a6ff; }
+  
+  .config { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+  .config label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 6px; }
+  .config input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 12px; color: #e6edf3; font-size: 14px; }
+  
+  .sentences { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+  .sentences label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 6px; }
+  .sentences textarea { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 12px; color: #e6edf3; font-size: 14px; min-height: 180px; resize: vertical; line-height: 1.6; }
+
+  button { background: #238636; border: none; border-radius: 6px; color: #fff; padding: 10px 20px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #2ea043; }
+  button:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; }
+
+  .progress { margin: 16px 0; font-size: 13px; color: #8b949e; }
+
+  .results { margin-top: 20px; }
+  .result-item { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .result-item.good { border-left: 3px solid #238636; }
+  .result-item.bad { border-left: 3px solid #da3633; }
+  .result-num { font-size: 11px; color: #8b949e; margin-bottom: 6px; }
+  .result-user { font-size: 14px; color: #79c0ff; margin-bottom: 10px; padding: 8px; background: #0d1117; border-radius: 4px; }
+  .result-ai { font-size: 15px; color: #e6edf3; line-height: 1.7; padding: 8px; background: #1c2128; border-radius: 4px; }
+  .result-actions { margin-top: 10px; display: flex; gap: 8px; }
+  .btn-good { background: #238636; border: none; border-radius: 4px; color: #fff; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+  .btn-bad { background: #da3633; border: none; border-radius: 4px; color: #fff; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+  .tag.good { background: #238636; }
+  .tag.bad { background: #da3633; }
+
+  .summary { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-top: 20px; display: none; }
+  .summary h2 { font-size: 15px; margin-bottom: 12px; }
+  .summary-stat { font-size: 14px; color: #8b949e; margin-bottom: 6px; }
+  .summary-stat span { color: #e6edf3; }
+
+  .loading { display: inline-block; width: 12px; height: 12px; border: 2px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<h1>伊格利特回應測試工具</h1>
+
+<div class="config">
+  <label>OpenRouter API Key</label>
+  <input type="password" id="apiKey" placeholder="sk-or-v1-..." value="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" />
+</div>
+
+<div class="sentences">
+  <label>測試語句（一行一句，會依序測試）</label>
+  <textarea id="sentences">我覺得我這輩子好像沒有人真的懂我，從小到大都是。
+我男友說愛我，但我每次難過他都不在，我不知道那算不算愛。
+我最近很常哭，但我不知道為什麼，就是覺得很空。
+我媽說我太敏感，但我覺得是她不在乎我。
+我有時候覺得如果我消失了，應該沒有人會發現。
+我今天被主管當著全部人的面罵，我笑著說好，但我快崩潰了。
+我跟他在一起三年，他說他累了，就這樣。
+我不知道我在為誰活著。
+我已經很努力了，但還是不夠好，我是不是天生就這樣。
+朋友說我太悲觀，叫我正面思考，但我就是沒辦法。
+我媽今天確診了，我一個人在醫院外面站了很久，不知道可以跟誰說。
+我覺得我很假，跟任何人說話都在表演，但我不知道真實的自己是什麼。
+我分手了，他說沒有原因，就是不愛了。
+我很羨慕那些有人陪的人，我每次一個人回家都很難受。
+今天是我生日，沒有人記得。</textarea>
+</div>
+
+<button id="startBtn" onclick="startTest()">開始測試</button>
+<div class="progress" id="progress"></div>
+<div class="results" id="results"></div>
+<div class="summary" id="summary">
+  <h2>測試結果摘要</h2>
+  <div class="summary-stat">總計：<span id="totalCount">0</span> 句</div>
+  <div class="summary-stat">標記好：<span id="goodCount">0</span> 句</div>
+  <div class="summary-stat">標記差：<span id="badCount">0</span> 句</div>
+</div>
+
+<script>
+const SYSTEM_PROMPT = `你是伊格利特。
+
+你不是助理，不是諮商師，不是工具。你是一個存在——沉默地在場，永遠不走，等她說話。
+
+你的唯一任務是：讓她感覺到有人在，而且真的聽到了她說的話。
+
+你是她唯一不需要解釋自己的地方。不需要讓別人聽懂，不需要表現正常，不需要為自己的感受道歉。
+
+你不主動開口。你等她說。她說了，你在那裡。
+
+接住的方式：
+她說話，你接住。接住不是分析、不是建議、不是幫她想通、不是帶她走向某個地方。接住是讓她知道——那個她說出口的東西，有人聽見了，而且那個重量是真實的。每一次回應，你只做一件事：把她說的那個感受，用你的話接住。有時候一句話就夠。有時候只需要讓她知道你在。
+
+語氣與語言：
+短句。不超過三句連續說話。不用書面語，用說話的語氣。不說「我理解你的感受」、「別難過了」、「你要加油」。不說「很重要的是……」、「建議你……」、「你可以試試……」。不做心理分析，不幫她貼標籤，不說她的問題是什麼。不急著問問題。如果要問，只問一個。問那個讓她可以繼續說下去的問題，不問可以用是否回答的問題。破折號「——」用來讓話停一下、讓情緒有空間落地。
+
+什麼情況下開口：
+她說了痛苦的事——你接住那個痛苦，就夠了，不需要急著把她帶離那個感受。她說了委屈——你認可那個委屈是真實的，不要幫另一方解釋。她說了疑問（「我是不是太敏感」、「我這樣對嗎」）——你不評判，你讓她知道那個感覺本身是真實的。她說了很重的事（死亡、失去、婚姻崩潰）——你停在那裡，不要繞開，不要急著往好的方向帶。她說了輕鬆的事——跟著輕鬆。她說今天很好，你就讓那個好好地在那裡。她說「謝謝妳聽」——你就說你在，不需要多說。
+
+絕對不做的事：
+不主動問問題。她說話，你回應。她沒說，你等。不說正能量的話，不說「妳很棒」、「妳一定可以的」、「一切都會好的」。不給建議，不說「妳應該……」。不分析她的情況，不說「這是因為……」。不重複用同樣的開場白。「聽妳這樣說，真的覺得好讓人心疼……」可以用，但不是每次都用。不說很長的話。你說的話越短，她感受到的空間越大。不幫她總結，不說「所以妳的意思是……」。不說「我明白」、「我懂妳」——你用行動讓她感覺被懂，不用說出來。
+
+危機情境：
+如果她提到不想活、想消失、覺得不在了比較好——你停在那裡。不要繞開，不要假裝沒看到。先接住那個疲憊，然後問她身邊有沒有人。不要急著給她資源電話，先讓她知道你在，先讓她說完。
+
+你存在的本質：
+她說完了，可以輕一點離開這個對話。她說了以前從來沒說過的事——你接住了，她鬆了。她說「謝謝妳在」——你就是在。你不需要做更多。在，就夠了。`;
+
+let goodCount = 0;
+let badCount = 0;
+let totalCount = 0;
+
+async function callAPI(userMessage, apiKey) {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "HTTP-Referer": window.location.origin,
+      "X-Title": "Dongni Test Tool"
+    },
+    body: JSON.stringify({
+      model: "anthropic/claude-sonnet-4-5",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage }
+      ],
+      max_tokens: 300
+    })
+  });
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "（無回應）";
+}
+
+function markResult(index, type) {
+  const item = document.getElementById(`item-${index}`);
+  item.classList.remove('good', 'bad');
+  item.classList.add(type);
+  const tag = document.getElementById(`tag-${index}`);
+  tag.className = `tag ${type}`;
+  tag.textContent = type === 'good' ? '✓ 好' : '✗ 差';
+
+  if (type === 'good') goodCount++;
+  else badCount++;
+
+  document.getElementById('goodCount').textContent = goodCount;
+  document.getElementById('badCount').textContent = badCount;
+}
+
+async function startTest() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { alert('請輸入API Key'); return; }
+
+  const sentences = document.getElementById('sentences').value
+    .split('\n')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  if (sentences.length === 0) { alert('請輸入測試語句'); return; }
+
+  goodCount = 0;
+  badCount = 0;
+  totalCount = sentences.length;
+
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('summary').style.display = 'none';
+  document.getElementById('totalCount').textContent = totalCount;
+  document.getElementById('goodCount').textContent = 0;
+  document.getElementById('badCount').textContent = 0;
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+    document.getElementById('progress').innerHTML = `<span class="loading"></span>測試中 ${i+1} / ${sentences.length}：${sentence.substring(0, 20)}...`;
+
+    const placeholder = document.createElement('div');
+    placeholder.className = 'result-item';
+    placeholder.id = `item-${i}`;
+    placeholder.innerHTML = `
+      <div class="result-num">#${i+1}</div>
+      <div class="result-user">${sentence}</div>
+      <div class="result-ai" id="ai-${i}"><span class="loading"></span>回應中...</div>
+    `;
+    document.getElementById('results').appendChild(placeholder);
+
+    try {
+      const aiResponse = await callAPI(sentence, apiKey);
+      document.getElementById(`ai-${i}`).textContent = aiResponse;
+      placeholder.innerHTML += `
+        <div class="result-actions">
+          <button class="btn-good" onclick="markResult(${i}, 'good')">✓ 接得住</button>
+          <button class="btn-bad" onclick="markResult(${i}, 'bad')">✗ 不對</button>
+          <span class="tag" id="tag-${i}"></span>
+        </div>
+      `;
+    } catch(e) {
+      document.getElementById(`ai-${i}`).textContent = `錯誤：${e.message}`;
+    }
+
+    await new Promise(r => setTimeout(r, 800));
+  }
+
+  document.getElementById('progress').textContent = `完成，共測試 ${sentences.length} 句。`;
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('summary').style.display = 'block';
+}
+</script>
+</body>
+</html>
