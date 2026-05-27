@@ -1,9 +1,49 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { sendToClaude } from './api';
+import { sendToClaude, sendMessageToServer } from './api';
 import Onboarding from "./Onboarding";
 import './App.css';
 
 const DEFAULT_MESSAGES = [{ role: "assistant", content: "妳好，我是〔懂妳〕。\n今天，怎麼了？" }];
+
+// 從對話中提煉記憶
+async function extractMemory(messages, apiKey) {
+  const conversationText = messages
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .join('\n');
+
+  if (!conversationText.trim()) return null;
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "Dongni Memory"
+      },
+      body: JSON.stringify({
+        model: "anthropic/claude-sonnet-4-5",
+        messages: [
+          {
+            role: "system",
+            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關係、困境。格式：每條一行，不超過10行，每行不超過20字。不要分析，只記錄事實。"
+          },
+          {
+            role: "user",
+            content: conversationText
+          }
+        ],
+        max_tokens: 300
+      })
+    });
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    return null;
+  }
+}
 
 function App() {
   const [messages, setMessages] = useState(() => {
@@ -17,15 +57,30 @@ function App() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("dongni_onboarding_completed"));
-  
-  // 🚨 法律合規：免責聲明彈窗狀態
   const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState(() => localStorage.getItem("dongni_disclaimer_agreed"));
+  const [memory, setMemory] = useState(() => localStorage.getItem("dongni_memory") || "");
 
   const chatEndRef = useRef(null);
+  const OPENROUTER_API_KEY = "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";
 
   useEffect(() => {
     localStorage.setItem("dongni_messages", JSON.stringify(messages));
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+    // 每累積10則用戶訊息，自動提煉一次記憶
+    const userMessages = messages.filter(m => m.role === 'user');
+    if (userMessages.length > 0 && userMessages.length % 10 === 0) {
+      extractMemory(messages, OPENROUTER_API_KEY).then(newMemory => {
+        if (newMemory) {
+          const existingMemory = localStorage.getItem("dongni_memory") || "";
+          const combined = existingMemory
+            ? existingMemory + "\n" + newMemory
+            : newMemory;
+          localStorage.setItem("dongni_memory", combined);
+          setMemory(combined);
+        }
+      });
+    }
   }, [messages]);
 
   const handleDisclaimerAgree = () => {
@@ -39,7 +94,12 @@ function App() {
 
     const userMessage = { role: 'user', content: input };
     const newMessages = [...messages.filter(m => m.content.disabled !== true), userMessage];
-    
+
+    // 把記憶注入system message
+    const messagesWithMemory = memory
+      ? [{ role: 'system', content: `以下是妳對這位使用者的記憶，請在對話中自然地運用：\n${memory}` }, ...newMessages]
+      : newMessages;
+
     setMessages(newMessages);
     setInput('');
     setIsLoading(true);
@@ -48,7 +108,7 @@ function App() {
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
-      await sendToClaude(newMessages, (chunk) => {
+      await sendMessageToServer(messagesWithMemory, (chunk) => {
         setMessages(prev => {
           const updated = [...prev];
           if (updated[aiMessageIndex]) updated[aiMessageIndex].content += chunk;
@@ -62,7 +122,6 @@ function App() {
     }
   };
 
-  // 🚨 優先渲染：免責聲明防線
   if (!hasAgreedDisclaimer) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-stone-900 text-stone-300 p-6 text-center font-light">
@@ -84,7 +143,7 @@ function App() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-stone-900 text-stone-200 p-4 font-light">
       <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
-        
+
         <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
           <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
           <div className="text-base text-stone-400 font-normal tracking-[0.25em]">〔 懂 妳 〕</div>
@@ -103,7 +162,6 @@ function App() {
               )}
             </div>
           ))}
-          {/* 🌟 療癒呼吸燈：只在 AI 正在思考/打字時在下方溫柔閃爍 */}
           {isLoading && <div className="breathing-glow" />}
           <div ref={chatEndRef} />
         </div>
@@ -111,7 +169,7 @@ function App() {
         <form onSubmit={handleSubmit} className="py-4">
           <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} placeholder="跟〔懂妳〕聊聊心裡的矛盾..." onChange={(e) => setInput(e.target.value)} disabled={isLoading} />
         </form>
-        
+
       </div>
     </div>
   );
