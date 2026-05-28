@@ -57,14 +57,14 @@ export default function Onboarding({ onDone }) {
       onMouseDown={handlePointerDown} onMouseUp={handlePointerUp}
       onTouchStart={handlePointerDown} onTouchEnd={handlePointerUp}
     >
-      <button onClick={onDone} style={{ position: "absolute", top: "calc(16px + env(safe-area-inset-top))", right: "calc(16px + env(safe-area-inset-right))", background: "transparent", color: "#7d96ad", border: "none", fontSize: "14px", letterSpacing: "0.1em", cursor: "pointer", padding: "10px 14px", zIndex: 3 }}>
+      <button onClick={onDone} style={{ position: "absolute", top: "calc(16px + env(safe-area-inset-top))", right: "calc(16px + env(safe-area-inset-right))", background: "transparent", color: "#7d96ad", border: "1px solid rgba(203, 213, 225, 0.3)", borderRadius: "6px", padding: "8px 16px", fontSize: "12px", letterSpacing: "0.05em", cursor: "pointer", transition: "all 0.3s ease", fontWeight: 300 }}>
         略過
       </button>
 
       <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "100%", overflow: "hidden" }}>
         <div style={{ display: "flex", width: `${PAGES.length * 100}%`, transform: `translateX(-${page * (100 / PAGES.length)}%)`, transition: "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)" }}>
           {PAGES.map((p, i) => (
-            <div key={i} style={{ flex: `0 0 ${100 / PAGES.length}%`, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 40px", textAlign: "center", opacity: i === page ? 1 : 0.4, transition: "opacity 0.55s ease" }}>
+            <div key={i} style={{ flex: `0 0 ${100 / PAGES.length}%`, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 40px", textAlign: "center", opacity: i === page ? 1 : 0.3, transition: "opacity 0.3s ease" }}>
               <h1 style={{ fontSize: "clamp(28px, 7vw, 58px)", fontWeight: 300, letterSpacing: "0.08em", margin: 0, marginBottom: "24px", lineHeight: 1.4, color: "#f1f5f9" }}>{p.title}</h1>
               <p style={{ fontSize: "clamp(15px, 4vw, 19px)", color: "#94a3b8", maxWidth: "520px", lineHeight: 1.9, fontWeight: 300, letterSpacing: "0.04em", margin: 0 }}>{p.subtitle}</p>
             </div>
@@ -72,14 +72,14 @@ export default function Onboarding({ onDone }) {
         </div>
       </div>
 
-      <div style={{ position: "absolute", bottom: "calc(40px + env(safe-area-inset-bottom))", left: "env(safe-area-inset-left)", right: "env(safe-area-inset-right)", display: "flex", flexDirection: "column", alignItems: "center", gap: "24px" }}>
+      <div style={{ position: "absolute", bottom: "calc(40px + env(safe-area-inset-bottom))", left: "env(safe-area-inset-left)", right: "env(safe-area-inset-right)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", width: "100%" }}>
         <div style={{ display: "flex", gap: "10px" }}>
           {PAGES.map((_, i) => (
-            <button key={i} onClick={() => setPage(i)} style={{ width: i === page ? "28px" : "8px", height: "8px", borderRadius: "4px", background: i === page ? "#cbd5e1" : "#1e3a52", border: "none", padding: 0, cursor: "pointer", transition: "all 0.35s ease" }} />
+            <button key={i} onClick={() => setPage(i)} style={{ width: i === page ? "28px" : "8px", height: "8px", borderRadius: "4px", background: i === page ? "#cbd5e1" : "#1e3a52", border: "none", cursor: "pointer", transition: "all 0.3s ease" }} />
           ))}
         </div>
 
-        <button onClick={isLast ? onDone : goNext} style={{ background: "transparent", color: "#e2e8f0", border: "1px solid rgba(203, 213, 225, 0.35)", borderRadius: "999px", padding: "14px 44px", fontSize: "15px", letterSpacing: "0.15em", cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.35s ease", minWidth: "140px" }}>
+        <button onClick={isLast ? onDone : goNext} style={{ background: "transparent", color: "#e2e8f0", border: "1px solid rgba(203, 213, 225, 0.35)", borderRadius: "999px", padding: "14px 44px", fontSize: "13px", letterSpacing: "0.08em", cursor: "pointer", transition: "all 0.3s ease", fontWeight: 300 }}>
           繼續
         </button>
       </div>

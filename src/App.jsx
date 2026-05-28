@@ -28,7 +28,7 @@ async function extractMemory(messages, apiKey) {
         messages: [
           {
             role: "system",
-            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關係、困境。格式：每條一行，不超過10行，每行不超過20字。不要分析，只記錄事實。"
+            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關係。"
           },
           {
             role: "user",
@@ -128,7 +128,7 @@ function App() {
         <div className="max-w-md bg-stone-800 p-8 rounded-3xl space-y-6 border border-stone-700 shadow-xl">
           <div className="text-xl tracking-widest text-stone-200">〔 歡迎來到 懂妳 〕</div>
           <p className="text-xs leading-relaxed text-stone-400 text-left bg-stone-900 p-4 rounded-xl border border-stone-800">
-            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理困擾或情緒危機，請務必尋求專業醫療機構或撥打安心專線（1925）協助。
+            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理危機或自傷念頭，請立即尋求專業心理衛生服務。
           </p>
           <button onClick={handleDisclaimerAgree} className="w-full py-3 rounded-full bg-stone-700 hover:bg-stone-600 text-sm tracking-widest text-stone-100 transition-colors shadow-md">
             我理解，進入空間
@@ -147,7 +147,7 @@ function App() {
         <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
           <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
           <div className="text-base text-stone-400 font-normal tracking-[0.25em]">〔 懂 妳 〕</div>
-          <button onClick={() => { if(window.confirm("確定清除？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除紀錄</button>
+          <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除記錄</button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
@@ -167,7 +167,7 @@ function App() {
         </div>
 
         <form onSubmit={handleSubmit} className="py-4">
-          <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} placeholder="跟〔懂妳〕聊聊心裡的矛盾..." onChange={(e) => setInput(e.target.value)} disabled={isLoading} />
+          <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} onChange={(e) => setInput(e.target.value)} placeholder="跟〔懂妳〕說說…" />
         </form>
 
       </div>
