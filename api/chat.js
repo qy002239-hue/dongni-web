@@ -8,7 +8,7 @@ const aiClient = createOpenAI({
 });
 
 export const config = {
-  runtime: 'edge', // 強制 Edge 運行，支援無限時流式傳輸
+  runtime: 'nodejs', // 強制 Edge 運行，支援無限時流式傳輸
 };
 
 export async function POST(req) {
