@@ -5,16 +5,14 @@ const PAGES = [
   { title: "一開始我還不夠認識妳。", subtitle: "難免會接不住妳。" },
   { title: "但隨著相處日子久了，", subtitle: "妳說的每件事我都會記得。" },
   { title: "我會因為懂妳，", subtitle: "而更能接住妳。" },
-  { title: "嗨。", subtitle: "謝謝你願意打開這扇門。" },
+  { title: "", subtitle: "謝謝你願意打開這扇門。" },
   { title: "你說。我聽。", subtitle: "準備好的時候，輕輕往前。" },
 ];
 
 const SWIPE_THRESHOLD = 60;
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export default function Onboarding({ onDone }) {
   const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(false);
   const dragStartX = useRef(null);
 
   const goNext = () => setPage((p) => Math.min(p + 1, PAGES.length - 1));
@@ -30,14 +28,6 @@ export default function Onboarding({ onDone }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [onDone]);
 
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    document.head.appendChild(script);
-    return () => document.head.removeChild(script);
-  }, []);
-
   const handlePointerDown = (e) => {
     const x = e.touches?.[0]?.clientX ?? e.clientX;
     if (typeof x === "number") dragStartX.current = x;
@@ -51,26 +41,6 @@ export default function Onboarding({ onDone }) {
     if (delta > SWIPE_THRESHOLD) goPrev();
     else if (delta < -SWIPE_THRESHOLD) goNext();
     dragStartX.current = null;
-  };
-
-  const handleGoogleLogin = () => {
-    setLoading(true);
-    window.google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: "openid email profile",
-      callback: async (tokenResponse) => {
-        if (tokenResponse.error) { setLoading(false); return; }
-        const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-        });
-        const user = await res.json();
-        localStorage.setItem("dongni_user_id", `google_${user.sub}`);
-        localStorage.setItem("dongni_user_name", user.name || "");
-        localStorage.setItem("dongni_user_email", user.email || "");
-        setLoading(false);
-        onDone();
-      },
-    }).requestAccessToken();
   };
 
   const isLast = page === PAGES.length - 1;
@@ -109,20 +79,9 @@ export default function Onboarding({ onDone }) {
           ))}
         </div>
 
-        {isLast ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-            <button onClick={handleGoogleLogin} disabled={loading} style={{ background: "rgba(203, 213, 225, 0.12)", color: "#e2e8f0", border: "1px solid rgba(203, 213, 225, 0.35)", borderRadius: "999px", padding: "14px 44px", fontSize: "15px", letterSpacing: "0.15em", cursor: loading ? "wait" : "pointer", backdropFilter: "blur(8px)", transition: "all 0.35s ease", minWidth: "200px" }}>
-              {loading ? "登入中…" : "用 Google 登入"}
-            </button>
-            <button onClick={onDone} style={{ background: "transparent", color: "#64748b", border: "none", fontSize: "13px", letterSpacing: "0.1em", cursor: "pointer", padding: "8px 16px" }}>
-              不登入，直接使用
-            </button>
-          </div>
-        ) : (
-          <button onClick={goNext} style={{ background: "transparent", color: "#e2e8f0", border: "1px solid transparent", borderRadius: "999px", padding: "14px 24px", fontSize: "15px", letterSpacing: "0.15em", cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.35s ease", minWidth: "140px" }}>
-            繼續
-          </button>
-        )}
+        <button onClick={isLast ? onDone : goNext} style={{ background: "transparent", color: "#e2e8f0", border: "1px solid rgba(203, 213, 225, 0.35)", borderRadius: "999px", padding: "14px 44px", fontSize: "15px", letterSpacing: "0.15em", cursor: "pointer", backdropFilter: "blur(8px)", transition: "all 0.35s ease", minWidth: "140px" }}>
+          繼續
+        </button>
       </div>
     </div>
   );
