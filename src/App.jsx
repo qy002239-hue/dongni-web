@@ -28,7 +28,7 @@ async function extractMemory(messages, apiKey) {
         messages: [
           {
             role: "system",
-            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關係。"
+            content: "你是一個記憶提煉助手���從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關係。"
           },
           {
             role: "user",
@@ -85,7 +85,7 @@ function App() {
 
   const handleDisclaimerAgree = () => {
     localStorage.setItem("dongni_disclaimer_agreed", "true");
-    setHasAgreedDisclaimer("true");
+    setHasAgreedDisclaimer(true);
   };
 
   const handleSubmit = async (e) => {
@@ -93,7 +93,7 @@ function App() {
     if (!input.trim() || isLoading) return;
 
     const userMessage = { role: 'user', content: input };
-    const newMessages = [...messages.filter(m => m.content.disabled !== true), userMessage];
+    const newMessages = [...messages, userMessage];
 
     // 把記憶注入system message
     const messagesWithMemory = memory
@@ -128,7 +128,7 @@ function App() {
         <div className="max-w-md bg-stone-800 p-8 rounded-3xl space-y-6 border border-stone-700 shadow-xl">
           <div className="text-xl tracking-widest text-stone-200">〔 歡迎來到 懂妳 〕</div>
           <p className="text-xs leading-relaxed text-stone-400 text-left bg-stone-900 p-4 rounded-xl border border-stone-800">
-            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理危機或自傷念頭，請立即尋求專業心理衛生服務。
+            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理危機，請立即聯絡專業心理衛生單位。
           </p>
           <button onClick={handleDisclaimerAgree} className="w-full py-3 rounded-full bg-stone-700 hover:bg-stone-600 text-sm tracking-widest text-stone-100 transition-colors shadow-md">
             我理解，進入空間
@@ -141,13 +141,13 @@ function App() {
   if (showOnboarding) return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
 
   return (
-    <div style={{ position: "fixed", inset: 0, margin: 0, overflow: "hidden", backgroundImage: `linear-gradient(180deg, rgba(2, 12, 24, 0.45) 0%, rgba(4, 18, 32, 0.65) 55%, rgba(2, 12, 24, 0.55) 100%), url('/ocean.jpg')`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} className="flex flex-col items-center justify-center min-h-screen text-stone-200 p-4 font-light">
+    <div style={{ position: "fixed", inset: 0, margin: 0, overflow: "hidden", backgroundImage: `linear-gradient(180deg, rgba(2, 12, 24, 0.45) 0%, rgba(4, 18, 32, 0.65) 55%, rgba(2, 12, 24, 0.55) 100%)` }}>
       <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
 
         <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
           <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
           <div className="text-base text-stone-400 font-normal tracking-[0.25em]">〔 懂 妳 〕</div>
-          <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除記錄</button>
+          <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除對話</button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
@@ -167,7 +167,7 @@ function App() {
         </div>
 
         <form onSubmit={handleSubmit} className="py-4">
-          <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} onChange={(e) => setInput(e.target.value)} placeholder="跟〔懂妳〕說說…" />
+          <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} onChange={(e) => setInput(e.target.value)} placeholder="在這裡分享妳的想法..." />
         </form>
 
       </div>
