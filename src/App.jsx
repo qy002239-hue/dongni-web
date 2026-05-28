@@ -138,7 +138,7 @@ function App() {
     );
   }
 
-  if (showOnboarding) return <Onboarding onComplete={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
+  if (showOnboarding) return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-stone-900 text-stone-200 p-4 font-light">
