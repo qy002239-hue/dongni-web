@@ -4,6 +4,18 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* 深海主題色彩變數 */
+  --ocean-dark: #0f2027;
+  --ocean-mid: #203a43;
+  --ocean-light: #2c5364;
+  
+  /* 排版變數 */
+  --text-size-bubble: 16px;
+  --text-size-ai: 18px;
+  --line-height: 1.65;
+}
+
 html,
 body,
 #root {
@@ -11,6 +23,9 @@ body,
   padding: 0;
   height: 100%;
   width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 body {
@@ -18,9 +33,16 @@ body {
     "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #03101e;
+  background: linear-gradient(
+    135deg,
+    var(--ocean-dark) 0%,
+    var(--ocean-mid) 50%,
+    var(--ocean-light) 100%
+  );
+  min-height: 100vh;
   color: #e2e8f0;
   overscroll-behavior: none;
+  overflow: hidden;
 }
 
 button,
@@ -31,4 +53,76 @@ input {
 
 button {
   touch-action: manipulation;
+}
+
+/* 用戶訊息泡泡 */
+.user-message-bubble {
+  font-size: var(--text-size-bubble);
+  line-height: var(--line-height);
+  word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+/* AI 訊息泡泡 */
+.ai-message-bubble {
+  font-size: var(--text-size-ai);
+  line-height: var(--line-height);
+  word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* 隱藏滾動條但保持滾動功能 */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* AI 吐字時的「現代詩歌淡入流暢動畫」 */
+.animate-fade-in {
+  animation: fadeInStyle 0.8s ease-out forwards;
+}
+
+@keyframes fadeInStyle {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* 療癒呼吸燈特效 */
+.breathing-glow {
+  width: 12px;
+  height: 12px;
+  background-color: #a8e6cf;
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(168, 230, 207, 0.6),
+    0 0 32px rgba(168, 230, 207, 0.3);
+  animation: breathe 4s ease-in-out infinite;
+  margin: 20px auto;
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+    box-shadow: 0 0 10px rgba(168, 230, 207, 0.2);
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.9;
+    box-shadow: 0 0 24px rgba(168, 230, 207, 0.8);
+  }
 }
