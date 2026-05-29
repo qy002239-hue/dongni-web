@@ -104,19 +104,36 @@ function App() {
     setInput('');
     setIsLoading(true);
 
+    // 立即添加空的 AI 訊息（會被 streaming 內容填充）
     const aiMessageIndex = newMessages.length;
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
+      let firstChunkReceived = false;
+      
       await sendMessageToServer(messagesWithMemory, (chunk) => {
+        // 第一個 chunk 到達時，標記已收到
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+        }
+
         setMessages(prev => {
           const updated = [...prev];
-          if (updated[aiMessageIndex]) updated[aiMessageIndex].content += chunk;
+          if (updated[aiMessageIndex]) {
+            updated[aiMessageIndex].content += chunk;
+          }
           return updated;
         });
       });
     } catch (error) {
       console.error(error);
+      setMessages(prev => {
+        const updated = [...prev];
+        if (updated[aiMessageIndex]) {
+          updated[aiMessageIndex].content = '出錯了，請重試...';
+        }
+        return updated;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -157,17 +174,21 @@ function App() {
                 <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide animate-fade-in">{msg.content}</div>
               ) : (
                 <div className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] animate-fade-in">
-                  {msg.content || (isLoading && idx === messages.length - 1 ? "" : "")}
+                  {msg.content || (isLoading && idx === messages.length - 1 ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-stone-400">懂妳正在傾聽中...</span>
+                      <div className="breathing-glow" />
+                    </div>
+                  ) : "")}
                 </div>
               )}
             </div>
           ))}
-          {isLoading && <div className="breathing-glow" />}
           <div ref={chatEndRef} />
         </div>
 
         <form onSubmit={handleSubmit} className="py-4">
-          <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} onChange={(e) => setInput(e.target.value)} placeholder="在這裡分享妳的想法..." />
+          <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} onChange={(e) => setInput(e.target.value)} placeholder="在這裡分享妳的想法..." disabled={isLoading} />
         </form>
 
       </div>
