@@ -1,58 +1,30 @@
-/* 全域深色質感底色 */
-body {
-  margin: 0;
-  background-color: #1c1917; /* 溫暖的深石墨色 */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  overflow: hidden;
+/* 全域深色質感底色 + 對話泡泡樣式 */
+
+/* Tailwind 類名覆蓋 - 確保字體大小一致 */
+.text-sm {
+  font-size: var(--text-size-bubble, 16px) !important;
+  line-height: var(--line-height, 1.65) !important;
 }
 
-/* 隱藏滾動條但保持滾動功能 */
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-none {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.text-lg {
+  font-size: var(--text-size-ai, 18px) !important;
+  line-height: var(--line-height, 1.65) !important;
 }
 
-/* 🌟 黑科技：AI 吐字時的「現代詩歌淡入流暢動畫」 */
-.animate-fade-in {
-  animation: fadeInStyle 0.8s ease-out forwards;
+/* 用戶訊息泡泡樣式增強 */
+.bg-stone-800.text-stone-200.border.border-stone-700 {
+  font-size: var(--text-size-bubble, 16px);
+  line-height: var(--line-height, 1.65);
+  word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-@keyframes fadeInStyle {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-    filter: blur(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
-}
-
-/* 🌟 療癒呼吸燈特效 */
-.breathing-glow {
-  width: 8px;
-  height: 8px;
-  background-color: #e7e5e4;
-  border-radius: 50%;
-  box-shadow: 0 0 12px #f5f5f4, 0 0 24px #e7e5e4;
-  animation: breathe 4s ease-in-out infinite;
-  margin: 15px auto;
-}
-
-@keyframes breathe {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.3;
-    box-shadow: 0 0 8px rgba(231, 229, 228, 0.2);
-  }
-  50% {
-    transform: scale(1.4);
-    opacity: 0.8;
-    box-shadow: 0 0 20px rgba(231, 229, 228, 0.8);
-  }
+/* AI 訊息泡泡樣式增強 */
+.whitespace-pre-line.text-stone-100 {
+  font-size: var(--text-size-ai, 18px);
+  line-height: var(--line-height, 1.65);
+  word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
