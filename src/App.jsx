@@ -141,7 +141,7 @@ function App() {
   if (showOnboarding) return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
 
   return (
-    <div style={{ position: "fixed", inset: 0, margin: 0, overflow: "hidden", backgroundImage: `linear-gradient(180deg, rgba(2, 12, 24, 0.45) 0%, rgba(4, 18, 32, 0.65) 55%, rgba(2, 12, 24, 0.55) 100%), url('/ocean.jpg')`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} className="flex flex-col items-center justify-center min-h-screen text-stone-200 p-4 font-light">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-stone-900 text-stone-200 p-4 font-light" style={{ backgroundImage: `linear-gradient(180deg, rgba(2, 12, 24, 0.45) 0%, rgba(4, 18, 32, 0.65) 55%, rgba(2, 12, 24, 0.55) 100%), url('/ocean.jpg')`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
       <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
 
         <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
