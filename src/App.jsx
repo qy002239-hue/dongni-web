@@ -28,7 +28,7 @@ async function extractMemory(messages, apiKey) {
         messages: [
           {
             role: "system",
-            content: "你是一個記憶提煉助手���從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關係。"
+            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關係。"
           },
           {
             role: "user",
