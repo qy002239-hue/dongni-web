@@ -37,14 +37,65 @@ export async function POST(req) {
         ...messages
       ],
       max_tokens: 300,
-      stream: false
+      stream: true
     })
   });
 
-  const data = await response.json();
-  const reply = data.choices?.[0]?.message?.content || '';
+  if (!response.ok) {
+    return new Response(JSON.stringify({ error: 'API error' }), {
+      status: response.status,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 
-  return new Response(JSON.stringify({ reply }), {
-    headers: { 'Content-Type': 'application/json' }
+  // 流式转发 OpenRouter 的响应
+  const reader = response.body.getReader();
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            break;
+          }
+
+          // 解析 OpenRouter 的 SSE 格式
+          const chunk = new TextDecoder().decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content || '';
+                
+                if (content) {
+                  // 转发文本内容到前端
+                  controller.enqueue(encoder.encode(content));
+                }
+              } catch (e) {
+                // 忽略无效的 JSON
+              }
+            }
+          }
+        }
+      } catch (error) {
+        controller.error(error);
+      }
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    }
   });
 }
