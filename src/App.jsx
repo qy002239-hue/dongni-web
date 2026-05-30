@@ -164,7 +164,10 @@ return (
       inset: 0,
       margin: 0,
       overflow: "hidden",
-      background: "#0c1720",
+        backgroundImage: 'url("/ocean.jpg.jpg")',
+  backgroundPosition: "center",
+  backgroundSize: "cover",
+  backgroundRepeat: "no-repeat",
     }}
   >
     <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
