@@ -175,7 +175,12 @@ return (
         <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除對話</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
+      <div className={`flex-1 overflow-y-auto px-4 py-6 scrollbar-none ${
+    messages.length === 1
+      ? "flex flex-col justify-center"
+      : "space-y-8"
+  }`}
+>
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}>
             {msg.role === 'user' ? (
