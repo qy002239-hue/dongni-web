@@ -36,7 +36,7 @@ export async function POST(req) {
         { role: 'system', content: SYSTEM_PROMPT },
         ...messages
       ],
-      max_tokens: 300,
+      max_tokens: 2000,
       stream: true
     })
   });
