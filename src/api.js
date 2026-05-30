@@ -7,7 +7,25 @@ export async function sendMessageToServer(messages, onChunk) {
 
   if (!response.ok) throw new Error('API error');
 
-  const data = await response.json();
-  if (onChunk) onChunk(data.reply);
-  return data.reply;
+  // 启用 streaming 读取
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullReply = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      fullReply += chunk;
+      
+      // 实时回调每个 chunk
+      if (onChunk) onChunk(chunk);
+    }
+  } finally {
+    reader.cancel();
+  }
+
+  return fullReply;
 }
