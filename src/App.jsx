@@ -157,43 +157,48 @@ function App() {
 
   if (showOnboarding) return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
 
-  return (
-    <div style={{ position: "fixed", inset: 0, margin: 0, overflow: "hidden", backgroundImage: `linear-gradient(180deg, rgba(2, 12, 24, 0.45) 0%, rgba(4, 18, 32, 0.65) 55%, rgba(2, 12, 24, 0.55) 100%)` }}>
-      <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
+return (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      margin: 0,
+      overflow: "hidden",
+      background: "red",
+    }}
+  >
+    <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
 
-        <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
-          <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
-          <div className="text-base text-stone-400 font-normal tracking-[0.25em]">〔 懂 妳 〕</div>
-          <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除對話</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}>
-              {msg.role === 'user' ? (
-                <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide animate-fade-in">{msg.content}</div>
-              ) : (
-                <div className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] animate-fade-in">
-                  {msg.content || (isLoading && idx === messages.length - 1 ? (
-                    <div className="flex items-center gap-3">
-                      <span className="text-stone-400">懂妳正在傾聽中...</span>
-                      <div className="breathing-glow" />
-                    </div>
-                  ) : "")}
-                </div>
-              )}
-            </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
-
-        <form onSubmit={handleSubmit} className="py-4">
-          <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} onChange={(e) => setInput(e.target.value)} placeholder="在這裡分享妳的想法..." disabled={isLoading} />
-        </form>
-
+      <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
+        <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
+        <div className="text-base text-stone-400 font-normal tracking-[0.25em]">【懂 妳】</div>
+        <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除對話</button>
       </div>
-    </div>
-  );
-}
 
-export default App;
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-8 scrollbar-none">
+        {messages.map((msg, idx) => (
+          <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}>
+            {msg.role === 'user' ? (
+              <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide animate-fade-in">{msg.content}</div>
+            ) : (
+              <div className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] animate-fade-in">
+                {msg.content || (isLoading && idx === messages.length - 1 ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-stone-400">懂妳正在傾聽中...</span>
+                    <div className="breathing-glow" />
+                  </div>
+                ) : "")}
+              </div>
+            )}
+          </div>
+        ))}
+        <div ref={chatEndRef} />
+      </div>
+
+      <form onSubmit={handleSubmit} className="py-4">
+        <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} onChange={(e) => setInput(e.target.value)} placeholder="在這裡分享妳的想法..." disabled={isLoading} />
+      </form>
+
+    </div>
+  </div>
+); 
