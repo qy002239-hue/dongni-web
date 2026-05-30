@@ -164,8 +164,8 @@ return (
       inset: 0,
       margin: 0,
       overflow: "hidden",
-        backgroundImage: 'url("/ocean.jpg.jpg")',
-  backgroundPosition: "center",
+        backgroundImage: "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/ocean.jpg.jpg')",
+      backgroundPosition: "center",
   backgroundSize: "cover",
   backgroundRepeat: "no-repeat",
     }}
