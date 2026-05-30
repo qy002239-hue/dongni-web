@@ -164,7 +164,7 @@ return (
       inset: 0,
       margin: 0,
       overflow: "hidden",
-      background: "red",
+      background: "#0c1720",
     }}
   >
     <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
