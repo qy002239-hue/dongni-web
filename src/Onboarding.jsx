@@ -51,7 +51,7 @@ export default function Onboarding({ onDone }) {
         position: "fixed", inset: 0, margin: 0, color: "#e2e8f0",
         overflow: "hidden", userSelect: "none", textAlign: "center",
         display: "flex", flexDirection: "column", justifyContent: "center",
-        backgroundImage: `linear-gradient(180deg, rgba(2, 12, 24, 0.45) 0%, rgba(4, 18, 32, 0.65) 55%, rgba(2, 12, 24, 0.55) 100%), url('/ocean.jpg')`,
+        backgroundImage: 'linear-gradient(180deg, var(--ocean-dark) 0%, var(--ocean-mid) 50%, var(--ocean-light) 100%)',
         backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat",
       }}
       onMouseDown={handlePointerDown} onMouseUp={handlePointerUp}
