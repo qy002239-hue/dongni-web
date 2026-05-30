@@ -52,7 +52,7 @@ export default function Onboarding({ onDone }) {
         overflow: "hidden", userSelect: "none", textAlign: "center",
         display: "flex", flexDirection: "column", justifyContent: "center",
         backgroundImage: " url('/ocean.jpg')",
-        backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat",
+        backgroundSize: "cover", backgroundPosition: "center bottom", backgroundRepeat: "no-repeat",
       }}
       onMouseDown={handlePointerDown} onMouseUp={handlePointerUp}
       onTouchStart={handlePointerDown} onTouchEnd={handlePointerUp}
