@@ -61,7 +61,7 @@ function App() {
   const [memory, setMemory] = useState(() => localStorage.getItem("dongni_memory") || "");
 
   const chatEndRef = useRef(null);
-  const OPENROUTER_API_KEY = "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";
+  const OPENROUTER_API_KEY = "";
 
   useEffect(() => {
     localStorage.setItem("dongni_messages", JSON.stringify(messages));
