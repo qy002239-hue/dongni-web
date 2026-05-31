@@ -254,14 +254,24 @@ return (
         ))}
         <div ref={chatEndRef} />
       </div>
-<form onSubmit={handleSubmit} className="py-4">
+<form
+  onSubmit={handleSubmit}
+  className="py-4 sticky bottom-0"
+>
   <textarea
-    className="w-full p-4 rounded-2xl bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-base tracking-wider resize-none min-h-[140px]"
+    className="w-full p-4 rounded-2xl bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-base tracking-wider resize-y min-h-[240px] max-h-[400px]"
     value={input}
     onChange={(e) => setInput(e.target.value)}
     placeholder="在這裡分享妳的想法..."
-    rows={4}
+    rows={10}
   />
+
+  <button
+    type="submit"
+    className="mt-3 w-full rounded-2xl bg-white/10 py-3 text-stone-100 hover:bg-white/20 transition"
+  >
+    傳送
+  </button>
 </form>
      
       
