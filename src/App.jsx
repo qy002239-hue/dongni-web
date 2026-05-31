@@ -155,7 +155,7 @@ if (!user) {
         alignItems: "center",
         flexDirection: "column",
         gap: "20px",
-        background: "black",
+        background: "transparent",
         color: "white"
       }}
     >
