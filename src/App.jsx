@@ -269,7 +269,7 @@ value={input}
 onChange={(e) => setInput(e.target.value)}
 placeholder="在這裡分享妳的想法..."
 rows={14}
-/>  
+></textarea>
 
  
      
