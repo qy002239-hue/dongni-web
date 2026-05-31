@@ -256,7 +256,7 @@ return (
       </div>
 <form onSubmit={handleSubmit} className="py-4">
   <textarea
-    className="w-full p-4 rounded-2xl bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-sm tracking-wider resize-none"
+    className="w-full p-4 rounded-2xl bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-base tracking-wider resize-none min-h-[140px]"
     value={input}
     onChange={(e) => setInput(e.target.value)}
     placeholder="在這裡分享妳的想法..."
