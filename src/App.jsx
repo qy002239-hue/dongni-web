@@ -65,7 +65,19 @@ function App() {
 
   const chatEndRef = useRef(null);
   const OPENROUTER_API_KEY = "";
+useEffect(() => {
+  supabase.auth.getSession().then(({ data }) => {
+    setUser(data.session?.user ?? null);
+  });
 
+  const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null);
+  });
+
+  return () => {
+    listener.subscription.unsubscribe();
+  };
+}, []);
   useEffect(() => {
     localStorage.setItem("dongni_messages", JSON.stringify(messages));
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
