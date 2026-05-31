@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { sendMessageToServer } from './api';
 import Onboarding from "./Onboarding";
+import { supabase } from './supabase';
 import './App.css';
 
 const DEFAULT_MESSAGES = [{ role: "assistant", content: "妳好，我是〔懂妳〕。\n今天，怎麼了？" }];
