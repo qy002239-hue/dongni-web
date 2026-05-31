@@ -47,6 +47,8 @@ async function extractMemory(messages, apiKey) {
 }
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [messages, setMessages] = useState(() => {
     try {
       const saved = localStorage.getItem("dongni_messages");
