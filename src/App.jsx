@@ -254,11 +254,17 @@ return (
         ))}
         <div ref={chatEndRef} />
       </div>
-
-      <form onSubmit={handleSubmit} className="py-4">
-        <input className="w-full p-4 rounded-full bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-center text-sm tracking-wider" value={input} onChange={(e) => setInput(e.target.value)} placeholder="在這裡分享妳的想法..." disabled={isLoading} />
-      </form>
-
+<form onSubmit={handleSubmit} className="py-4">
+  <textarea
+    className="w-full p-4 rounded-2xl bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-sm tracking-wider resize-none"
+    value={input}
+    onChange={(e) => setInput(e.target.value)}
+    placeholder="在這裡分享妳的想法..."
+    rows={4}
+  />
+</form>
+     
+      
     </div>
   </div>
 ); 
