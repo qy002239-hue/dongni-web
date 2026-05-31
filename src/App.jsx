@@ -259,6 +259,12 @@ return (
   className="py-4 sticky bottom-0"
 >
   <textarea
+    <textarea
+style={{
+  width: "600px",
+  height: "300px",
+  background: "red",
+}}
     className="w-full p-4 rounded-2xl bg-stone-800 border border-stone-700 text-stone-200 placeholder-stone-500 text-base tracking-wider resize-y min-h-[240px] max-h-[400px]"
     value={input}
     onChange={(e) => setInput(e.target.value)}
