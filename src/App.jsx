@@ -141,7 +141,44 @@ function App() {
       setIsLoading(false);
     }
   };
+if (authLoading) {
+  return <div>載入中...</div>;
+}
 
+if (!user) {
+  return (
+    <div
+      style={{
+        height: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        flexDirection: "column",
+        gap: "20px",
+        background: "black",
+        color: "white"
+      }}
+    >
+      <h1>歡迎來到懂妳</h1>
+
+      <button
+        onClick={async () => {
+          await supabase.auth.signInWithOAuth({
+            provider: "google",
+          });
+        }}
+        style={{
+          padding: "12px 24px",
+          borderRadius: "12px",
+          border: "none",
+          cursor: "pointer"
+        }}
+      >
+        使用 Google 登入
+      </button>
+    </div>
+  );
+}
   if (!hasAgreedDisclaimer) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-stone-900 text-stone-300 p-6 text-center font-light">
