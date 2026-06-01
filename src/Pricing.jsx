@@ -1,7 +1,7 @@
 import React from 'react';
 import './Pricing.css';
 
-function Pricing() {
+function Pricing({ onBack }) {
   const handlePayment = () => {
     console.log("start one-time payment");
     // TODO: 集成 Stripe Checkout API
@@ -14,7 +14,7 @@ function Pricing() {
         {/* 返回按钮 */}
         <div className="pricing-header">
           <button
-            onClick={() => window.history.back()}
+            onClick={onBack}
             className="pricing-back-btn"
           >
             ← 返回
