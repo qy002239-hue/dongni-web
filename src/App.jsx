@@ -259,17 +259,17 @@ return (
   className="py-4 sticky bottom-0"
 >
   <textarea
-style={{
-  width: "100%",
-  minHeight: "320px",
-}}
-
-className="w-full p-6 rounded-3xl bg-stone-800/90 border border-white/10 text-stone-100 placeholder-stone-400 text-lg tracking-wide resize-none min-h-[320px]"
-value={input}
-onChange={(e) => setInput(e.target.value)}
-placeholder="在這裡分享妳的想法..."
-rows={14}
-></textarea>
+    style={{
+      width: "100%",
+      minHeight: "320px",
+    }}
+    className="w-full p-6 rounded-3xl bg-stone-800/90 border border-white/10 text-stone-100 placeholder-stone-400 text-lg tracking-wide resize-none min-h-[320px]"
+    value={input}
+    onChange={(e) => setInput(e.target.value)}
+    placeholder="在這裡分享妳的想法..."
+    rows={14}
+  />
+</form>
 
  
      
