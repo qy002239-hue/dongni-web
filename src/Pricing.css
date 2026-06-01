@@ -1,0 +1,247 @@
+/* 付款頁面主容器 */
+.pricing-container {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url('/ocean.jpg.jpg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.pricing-content {
+  width: 100%;
+  max-width: 600px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 頂部按钮和標題 */
+.pricing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.pricing-back-btn {
+  background: none;
+  border: none;
+  color: #b0a89f;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 12px;
+  transition: color 0.3s ease;
+  letter-spacing: 0.05em;
+  width: 60px;
+  text-align: left;
+}
+
+.pricing-back-btn:hover {
+  color: #d4d1ca;
+}
+
+.pricing-title {
+  font-size: 18px;
+  color: #b0a89f;
+  letter-spacing: 0.25em;
+  font-weight: 400;
+  flex: 1;
+}
+
+/* 主要內容區域 */
+.pricing-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.pricing-main::-webkit-scrollbar {
+  display: none;
+}
+
+.pricing-main {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 描述文案 */
+.pricing-description {
+  padding: 20px 0;
+  color: #e2e8f0;
+  text-align: center;
+  line-height: 1.8;
+}
+
+.pricing-text-primary {
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  margin: 12px 0;
+  font-weight: 300;
+  color: #d1c8be;
+}
+
+.pricing-text-secondary {
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  margin: 16px 0;
+  color: #a8a099;
+  font-weight: 300;
+  line-height: 1.9;
+}
+
+/* 價格卡片 */
+.pricing-card {
+  background: rgba(28, 25, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 32px 24px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  margin-top: 20px;
+  animation: fadeInScale 0.6s ease-out;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pricing-plan-name {
+  font-size: 20px;
+  color: #d1c8be;
+  letter-spacing: 0.15em;
+  margin-bottom: 16px;
+  font-weight: 400;
+}
+
+/* 價格展示 */
+.pricing-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.pricing-price .currency {
+  font-size: 20px;
+  color: #a8a099;
+  font-weight: 300;
+}
+
+.pricing-price .amount {
+  font-size: 48px;
+  color: #e2e8f0;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+.pricing-price .period {
+  font-size: 16px;
+  color: #a8a099;
+  font-weight: 300;
+  margin-left: 4px;
+}
+
+.pricing-type {
+  font-size: 14px;
+  color: #8a8078;
+  letter-spacing: 0.03em;
+  margin-bottom: 24px;
+  font-weight: 300;
+}
+
+/* 支付按钮 */
+.pricing-payment-btn {
+  background: linear-gradient(135deg, rgba(168, 230, 207, 0.15), rgba(168, 230, 207, 0.05));
+  border: 1.5px solid rgba(168, 230, 207, 0.3);
+  color: #b5d5cc;
+  padding: 14px 24px;
+  border-radius: 20px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  letter-spacing: 0.04em;
+  font-weight: 400;
+  font-family: inherit;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(168, 230, 207, 0.1);
+}
+
+.pricing-payment-btn:hover {
+  background: linear-gradient(135deg, rgba(168, 230, 207, 0.25), rgba(168, 230, 207, 0.1));
+  border-color: rgba(168, 230, 207, 0.5);
+  color: #d1e8e1;
+  box-shadow: 0 6px 24px rgba(168, 230, 207, 0.2);
+  transform: translateY(-2px);
+}
+
+.pricing-payment-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(168, 230, 207, 0.15);
+}
+
+/* 底部聲明 */
+.pricing-disclaimer {
+  font-size: 12px;
+  color: #6b6359;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-weight: 300;
+}
+
+/* 響應式設計 */
+@media (max-width: 640px) {
+  .pricing-container {
+    padding: 12px;
+  }
+
+  .pricing-content {
+    height: 90vh;
+  }
+
+  .pricing-card {
+    padding: 24px 16px;
+  }
+
+  .pricing-text-primary {
+    font-size: 16px;
+  }
+
+  .pricing-text-secondary {
+    font-size: 14px;
+  }
+
+  .pricing-price .amount {
+    font-size: 40px;
+  }
+
+  .pricing-payment-btn {
+    font-size: 14px;
+    padding: 12px 20px;
+  }
+}
