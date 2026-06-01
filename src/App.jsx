@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { sendMessageToServer } from './api';
 import Onboarding from "./Onboarding";
+import Pricing from "./Pricing";
 import { supabase } from './supabase';
 import './App.css';
 
@@ -62,6 +63,7 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("dongni_onboarding_completed"));
   const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState(() => localStorage.getItem("dongni_disclaimer_agreed"));
   const [memory, setMemory] = useState(() => localStorage.getItem("dongni_memory") || "");
+  const [currentPage, setCurrentPage] = useState('chat'); // 'chat' 或 'pricing'
 
   const chatEndRef = useRef(null);
   const OPENROUTER_API_KEY = "";
@@ -201,7 +203,7 @@ function App() {
         <div className="max-w-md bg-stone-800 p-8 rounded-3xl space-y-6 border border-stone-700 shadow-xl">
           <div className="text-xl tracking-widest text-stone-200">〔 歡迎來到 懂妳 〕</div>
           <p className="text-xs leading-relaxed text-stone-400 text-left bg-stone-900 p-4 rounded-xl border border-stone-800">
-            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理健康危機，請立即尋求專業醫療協助。
+            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理[...]
           </p>
           <button onClick={handleDisclaimerAgree} className="w-full py-3 rounded-full bg-stone-700 hover:bg-stone-600 text-sm tracking-widest text-stone-100 transition-colors shadow-md">
             我理解，進入空間
@@ -213,6 +215,11 @@ function App() {
 
   if (showOnboarding) {
     return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
+  }
+
+  // 顯示付款頁
+  if (currentPage === 'pricing') {
+    return <Pricing />;
   }
 
   return (
@@ -233,7 +240,7 @@ function App() {
         <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
           <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
           <div className="text-base text-stone-400 font-normal tracking-[0.25em]">【懂 妳】</div>
-          <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除記錄</button>
+          <button onClick={() => { setCurrentPage('pricing'); }} className="hover:text-stone-300">Plus</button>
         </div>
 
         <div className={`flex-1 overflow-y-auto px-4 py-6 scrollbar-none ${
