@@ -219,7 +219,7 @@ function App() {
 
   // 顯示付款頁
   if (currentPage === 'pricing') {
-    return <Pricing />;
+    return <Pricing onBack={() => setCurrentPage('chat')} />;
   }
 
   return (
