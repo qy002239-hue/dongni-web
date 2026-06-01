@@ -29,7 +29,7 @@ async function extractMemory(messages, apiKey) {
         messages: [
           {
             role: "system",
-            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關係。"
+            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關[...]"
           },
           {
             role: "user",
@@ -65,19 +65,21 @@ function App() {
 
   const chatEndRef = useRef(null);
   const OPENROUTER_API_KEY = "";
-useEffect(() => {
-  supabase.auth.getSession().then(({ data }) => {
-    setUser(data.session?.user ?? null);
-  });
 
-  const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-    setUser(session?.user ?? null);
-  });
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+    });
 
-  return () => {
-    listener.subscription.unsubscribe();
-  };
-}, []);
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     localStorage.setItem("dongni_messages", JSON.stringify(messages));
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -153,51 +155,53 @@ useEffect(() => {
       setIsLoading(false);
     }
   };
-if (authLoading) {
-  return <div>載入中...</div>;
-}
 
-if (!user) {
-  return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
-        gap: "20px",
-        background: "transparent",
-        color: "white"
-      }}
-    >
-      <h1>歡迎來到懂妳</h1>
+  if (authLoading) {
+    return <div>載入中...</div>;
+  }
 
-      <button
-        onClick={async () => {
-          await supabase.auth.signInWithOAuth({
-            provider: "google",
-          });
-        }}
+  if (!user) {
+    return (
+      <div
         style={{
-          padding: "12px 24px",
-          borderRadius: "12px",
-          border: "none",
-          cursor: "pointer"
+          height: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+          gap: "20px",
+          background: "transparent",
+          color: "white"
         }}
       >
-        使用 Google 登入
-      </button>
-    </div>
-  );
-}
+        <h1>歡迎來到懂妳</h1>
+
+        <button
+          onClick={async () => {
+            await supabase.auth.signInWithOAuth({
+              provider: "google",
+            });
+          }}
+          style={{
+            padding: "12px 24px",
+            borderRadius: "12px",
+            border: "none",
+            cursor: "pointer"
+          }}
+        >
+          使用 Google 登入
+        </button>
+      </div>
+    );
+  }
+
   if (!hasAgreedDisclaimer) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-stone-900 text-stone-300 p-6 text-center font-light">
         <div className="max-w-md bg-stone-800 p-8 rounded-3xl space-y-6 border border-stone-700 shadow-xl">
           <div className="text-xl tracking-widest text-stone-200">〔 歡迎來到 懂妳 〕</div>
           <p className="text-xs leading-relaxed text-stone-400 text-left bg-stone-900 p-4 rounded-xl border border-stone-800">
-            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理危機，請立即聯絡專業心理衛生單位。
+            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理健康危機，請立即尋求專業醫療協助。
           </p>
           <button onClick={handleDisclaimerAgree} className="w-full py-3 rounded-full bg-stone-700 hover:bg-stone-600 text-sm tracking-widest text-stone-100 transition-colors shadow-md">
             我理解，進入空間
@@ -207,76 +211,75 @@ if (!user) {
     );
   }
 
-  if (showOnboarding) return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
+  if (showOnboarding) {
+    return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
+  }
 
-return (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      margin: 0,
-      overflow: "hidden",
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        margin: 0,
+        overflow: "hidden",
         backgroundImage: "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/ocean.jpg.jpg')",
-      backgroundPosition: "center",
-  backgroundSize: "cover",
-  backgroundRepeat: "no-repeat",
-    }}
-  >
-    <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
+        backgroundPosition: "center",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
 
-      <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
-        <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
-        <div className="text-base text-stone-400 font-normal tracking-[0.25em]">【懂 妳】</div>
-        <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除對話</button>
+        <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
+          <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
+          <div className="text-base text-stone-400 font-normal tracking-[0.25em]">【懂 妳】</div>
+          <button onClick={() => { if(window.confirm("確定清除對話記錄？")){ setMessages(DEFAULT_MESSAGES); localStorage.removeItem("dongni_messages"); } }} className="hover:text-stone-300">清除記錄</button>
+        </div>
+
+        <div className={`flex-1 overflow-y-auto px-4 py-6 scrollbar-none ${
+          messages.length === 1
+            ? "flex flex-col justify-center"
+            : "space-y-8"
+        }`}
+        >
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}>
+              {msg.role === 'user' ? (
+                <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide animate-fade-in">{msg.content}</div>
+              ) : (
+                <div className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] animate-fade-in">
+                  {msg.content || (isLoading && idx === messages.length - 1 ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-stone-400">懂妳正在傾聽中...</span>
+                      <div className="breathing-glow" />
+                    </div>
+                  ) : "")}
+                </div>
+              )}
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="py-4 sticky bottom-0"
+        >
+          <textarea
+            style={{
+              width: "100%",
+              minHeight: "320px",
+            }}
+            className="w-full p-6 rounded-3xl bg-stone-800/90 border border-white/10 text-stone-100 placeholder-stone-400 text-lg tracking-wide resize-none min-h-[320px]"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="在這裡分享妳的想法..."
+            rows={14}
+          />
+        </form>
       </div>
-
-      <div className={`flex-1 overflow-y-auto px-4 py-6 scrollbar-none ${
-    messages.length === 1
-      ? "flex flex-col justify-center"
-      : "space-y-8"
-  }`}
->
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}>
-            {msg.role === 'user' ? (
-              <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide animate-fade-in">{msg.content}</div>
-            ) : (
-              <div className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] animate-fade-in">
-                {msg.content || (isLoading && idx === messages.length - 1 ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-stone-400">懂妳正在傾聽中...</span>
-                    <div className="breathing-glow" />
-                  </div>
-                ) : "")}
-              </div>
-            )}
-          </div>
-        ))}
-        <div ref={chatEndRef} />
-      </div>
-<form
-  onSubmit={handleSubmit}
-  className="py-4 sticky bottom-0"
->
-  <textarea
-    style={{
-      width: "100%",
-      minHeight: "320px",
-    }}
-    className="w-full p-6 rounded-3xl bg-stone-800/90 border border-white/10 text-stone-100 placeholder-stone-400 text-lg tracking-wide resize-none min-h-[320px]"
-    value={input}
-    onChange={(e) => setInput(e.target.value)}
-    placeholder="在這裡分享妳的想法..."
-    rows={14}
-  />
-</form>
-
- 
-     
-      
-    
-
-
-
+    </div>
+  );
+}
 
 export default App;
