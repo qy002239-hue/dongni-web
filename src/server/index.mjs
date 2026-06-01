@@ -1,9 +1,14 @@
 import express from 'express';
 import cors from 'cors';
-import fetch from 'node-fetch';
 
 const app = express();
-app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], credentials: true }));
+
+// CORS 配置：允許指定的來源，或在開發時允許 localhost
+const allowedOrigins = process.env.ALLOWED_ORIGIN
+  ? process.env.ALLOWED_ORIGIN.split(',').map(origin => origin.trim())
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 app.post('/api/chat', async (req, res) => {
@@ -13,13 +18,19 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
 
   try {
+    // 驗證 OpenRouter API 密鑰
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+    if (!openrouterApiKey) {
+      throw new Error('OPENROUTER_API_KEY environment variable is not set');
+    }
+
     let formattedMessages = messages ? messages.map(msg => ({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.content })) : [{ role: 'user', content: message }];
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer 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",
-        "HTTP-Referer": "http://localhost:5173",
+        "Authorization": `Bearer ${openrouterApiKey}`,
+        "HTTP-Referer": process.env.HTTP_REFERER || "http://localhost:5173",
         "X-Title": "DongNi",
         "Content-Type": "application/json"
       },
@@ -66,6 +77,12 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-app.listen(3001, () => {
-  console.log("守護者核心：純Fetch暴力對接通電！3001點火！");
+// 健康檢查端點
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true });
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`懂妳服務器已啟動，監聽連接埠 ${PORT}`);
 });
