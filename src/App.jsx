@@ -108,6 +108,313 @@ function App() {
   };
 
   const handleSubmit = async (e) => {
+    e?.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = { role: 'user', content: input };
+    const newMessages = [...messages, userMessage];
+
+    // 把記憶注入system message
+    const messagesWithMemory = memory
+      ? [{ role: 'system', content: `以下是妳對這位使用者的記憶，請在對話中自然地運用：\n${memory}` }, ...newMessages]
+      : newMessages;
+
+    setMessages(newMessages);
+    setInput('');
+    setIsLoading(true);
+
+    // 立即添加空的 AI 訊息（會被 streaming 內容填充）
+    const aiMessageIndex = newMessages.length;
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+    try {
+      let firstChunkReceived = false;
+      
+      await sendMessageToServer(messagesWithMemory, (chunk) => {
+        // 第一個 chunk 到達時，標記已收到
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+        }
+
+        setMessages(prev => {
+          const updated = [...prev];
+          if (updated[aiMessageIndex]) {
+            updated[aiMessageIndex].content += chunk;
+          }
+          return updated;
+        });
+      });
+    } catch (error) {
+      console.error(error);
+      setMessages(prev => {
+        const updated = [...prev];
+        if (updated[aiMessageIndex]) {
+          updated[aiMessageIndex].content = '出錯了，請重試...';
+        }
+        return updated;
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  if (authLoading) {
+    return <div>載入中...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+          gap: "20px",
+          background: "transparent",
+          color: "white"
+        }}
+      >
+        <h1>歡迎來到懂妳</h1>
+
+        <button
+          onClick={async () => {
+            await supabase.auth.signInWithOAuth({
+              provider: "google",
+            });
+          }}
+          style={{
+            padding: "12px 24px",
+            borderRadius: "12px",
+            border: "none",
+            cursor: "pointer"
+          }}
+        >
+          使用 Google 登入
+        </button>
+      </div>
+    );
+  }
+
+  if (!hasAgreedDisclaimer) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-stone-900 text-stone-300 p-6 text-center font-light">
+        <div className="max-w-md bg-stone-800 p-8 rounded-3xl space-y-6 border border-stone-700 shadow-xl">
+          <div className="text-xl tracking-widest text-stone-200">〔 歡迎來到 懂妳 〕</div>
+          <p className="text-xs leading-relaxed text-stone-400 text-left bg-stone-900 p-4 rounded-xl border border-stone-800">
+            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理[...]
+          </p>
+          <button onClick={handleDisclaimerAgree} className="w-full py-3 rounded-full bg-stone-700 hover:bg-stone-600 text-sm tracking-widest text-stone-100 transition-colors shadow-md">
+            我理解，進入空間
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (showOnboarding) {
+    return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
+  }
+
+  // 顯示付款頁
+  if (currentPage === 'pricing') {
+    return <Pricing onBack={() => setCurrentPage('chat')} />;
+  }
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        margin: 0,
+        overflow: "hidden",
+        backgroundImage: "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/ocean.jpg.jpg')",
+        backgroundPosition: "center",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
+
+        <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
+          <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
+          <div className="text-base text-stone-400 font-normal tracking-[0.25em]">【懂 妳】</div>
+          <button onClick={() => { setCurrentPage('pricing'); }} className="hover:text-stone-300">Plus</button>
+        </div>
+
+        <div className={`flex-1 overflow-y-auto px-4 py-6 scrollbar-none ${
+          messages.length === 1
+            ? "flex flex-col justify-center"
+            : "space-y-8"
+        }`}
+        >
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}>
+              {msg.role === 'user' ? (
+                <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide animate-fade-in">{msg.content}</div>
+              ) : (
+                <div className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] animate-fade-in">
+                  {msg.content || (isLoading && idx === messages.length - 1 ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-stone-400">懂妳正在傾聽中...</span>
+                      <div className="breathing-glow" />
+                    </div>
+                  ) : "")}
+                </div>
+              )}
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="py-4 sticky bottom-0 space-y-3"
+        >
+          <textarea
+            style={{
+              width: "100%",
+              minHeight: "320px",
+            }}
+            className="w-full p-6 rounded-3xl bg-stone-800/90 border border-white/10 text-stone-100 placeholder-stone-400 text-lg tracking-wide resize-none min-h-[320px]"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleInputKeyDown}
+            placeholder="在這裡分享妳的想法..."
+            rows={14}
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="w-full rounded-full bg-stone-100/90 px-5 py-3 text-sm font-medium tracking-widest text-stone-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:bg-stone-700/70 disabled:text-stone-400"
+          >
+            {isLoading ? '回應中...' : '送出'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+import React, { useState, useRef, useEffect } from 'react';
+import { sendMessageToServer } from './api';
+import Onboarding from "./Onboarding";
+import Pricing from "./Pricing";
+import { supabase } from './supabase';
+import './App.css';
+
+const DEFAULT_MESSAGES = [{ role: "assistant", content: "妳好，我是〔懂妳〕。\n今天，怎麼了？" }];
+
+// 從對話中提煉記憶
+async function extractMemory(messages, apiKey) {
+  const conversationText = messages
+    .filter(m => m.role === 'user')
+    .map(m => m.content)
+    .join('\n');
+
+  if (!conversationText.trim()) return null;
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "Dongni Memory"
+      },
+      body: JSON.stringify({
+        model: "anthropic/claude-sonnet-4-5",
+        messages: [
+          {
+            role: "system",
+            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關[...]"
+          },
+          {
+            role: "user",
+            content: conversationText
+          }
+        ],
+        max_tokens: 300
+      })
+    });
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem("dongni_messages");
+      if (saved) return JSON.parse(saved).length > 0 ? JSON.parse(saved) : DEFAULT_MESSAGES;
+    } catch (e) {}
+    return DEFAULT_MESSAGES;
+  });
+
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("dongni_onboarding_completed"));
+  const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState(() => localStorage.getItem("dongni_disclaimer_agreed"));
+  const [memory, setMemory] = useState(() => localStorage.getItem("dongni_memory") || "");
+  const [currentPage, setCurrentPage] = useState('chat'); // 'chat' 或 'pricing'
+
+  const chatEndRef = useRef(null);
+  const OPENROUTER_API_KEY = "";
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("dongni_messages", JSON.stringify(messages));
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+    // 每累積10則用戶訊息，自動提煉一次記憶
+    const userMessages = messages.filter(m => m.role === 'user');
+    if (userMessages.length > 0 && userMessages.length % 10 === 0) {
+      extractMemory(messages, OPENROUTER_API_KEY).then(newMemory => {
+        if (newMemory) {
+          const existingMemory = localStorage.getItem("dongni_memory") || "";
+          const combined = existingMemory
+            ? existingMemory + "\n" + newMemory
+            : newMemory;
+          localStorage.setItem("dongni_memory", combined);
+          setMemory(combined);
+        }
+      });
+    }
+  }, [messages]);
+
+  const handleDisclaimerAgree = () => {
+    localStorage.setItem("dongni_disclaimer_agreed", "true");
+    setHasAgreedDisclaimer(true);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
