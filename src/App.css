@@ -106,6 +106,7 @@
 .message-row-assistant {
   align-items: stretch;
   text-align: left;
+  scroll-margin-top: 18px;
 }
 
 .user-message-bubble {
