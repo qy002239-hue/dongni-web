@@ -48,7 +48,13 @@ function Pricing({ onBack, accessToken }) {
         })
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        data = { error: responseText || 'PayPal checkout did not return a valid response.' };
+      }
 
       if (!response.ok || !data.url) {
         throw new Error(data.error || 'Unable to create PayPal checkout.');
