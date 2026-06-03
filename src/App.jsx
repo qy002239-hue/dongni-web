@@ -29,6 +29,15 @@ function shouldOpenPricing(error) {
   return error?.message?.includes('Plus') || error?.message?.includes('credit') || error?.message?.includes('\u6b21\u6578');
 }
 
+function formatAssistantText(content) {
+  return String(content || '')
+    .replace(/\*\*/g, '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState('');
@@ -334,7 +343,7 @@ function App() {
                 <div className="user-message-bubble animate-fade-in">{msg.content}</div>
               ) : (
                 <div className="ai-message-bubble animate-fade-in">
-                  {msg.content || (isLoading && idx === messages.length - 1 ? (
+                  {msg.content ? formatAssistantText(msg.content) : (isLoading && idx === messages.length - 1 ? (
                     <div className="listening-indicator">
                       <span>{'\u61c2\u59b3\u6b63\u5728\u807d\u59b3\u8aaa...'}</span>
                       <div className="breathing-glow" />
