@@ -16,7 +16,7 @@
 
 .pricing-content {
   width: 100%;
-  max-width: 600px;
+  max-width: 860px;
   height: 85vh;
   display: flex;
   flex-direction: column;
@@ -103,6 +103,13 @@
   line-height: 1.9;
 }
 
+.pricing-plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
 /* 價格卡片 */
 .pricing-card {
   background: rgba(28, 25, 23, 0.8);
@@ -114,6 +121,23 @@
   text-align: center;
   margin-top: 20px;
   animation: fadeInScale 0.6s ease-out;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+}
+
+.pricing-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  border: 1px solid rgba(168, 230, 207, 0.35);
+  border-radius: 999px;
+  color: #b5d5cc;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  background: rgba(168, 230, 207, 0.08);
 }
 
 @keyframes fadeInScale {
@@ -170,6 +194,7 @@
   letter-spacing: 0.03em;
   margin-bottom: 24px;
   font-weight: 300;
+  min-height: 42px;
 }
 
 /* 支付按钮 */
@@ -187,6 +212,7 @@
   font-family: inherit;
   margin-bottom: 16px;
   box-shadow: 0 4px 16px rgba(168, 230, 207, 0.1);
+  margin-top: auto;
 }
 
 .pricing-payment-btn:hover {
@@ -202,16 +228,31 @@
   box-shadow: 0 2px 8px rgba(168, 230, 207, 0.15);
 }
 
+.pricing-payment-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
+.pricing-error {
+  color: #fca5a5;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+  text-align: center;
+}
+
 /* 底部聲明 */
 .pricing-disclaimer {
   font-size: 12px;
   color: #6b6359;
   line-height: 1.6;
   letter-spacing: 0.01em;
-  margin-top: 16px;
+  margin: 16px 0 0;
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   font-weight: 300;
+  text-align: center;
 }
 
 /* 響應式設計 */
@@ -226,6 +267,12 @@
 
   .pricing-card {
     padding: 24px 16px;
+    min-height: 280px;
+  }
+
+  .pricing-plans {
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .pricing-text-primary {
