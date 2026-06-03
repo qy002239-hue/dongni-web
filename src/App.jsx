@@ -1,80 +1,78 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { sendMessageToServer } from './api';
-import Onboarding from "./Onboarding";
-import Pricing from "./Pricing";
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { capturePayPalOrder, fetchConversationSession, sendMessageToServer, startConversationSession } from './api';
+import AdminDashboard from './AdminDashboard';
+import Onboarding from './Onboarding';
+import Pricing from './Pricing';
 import { supabase } from './supabase';
 import './App.css';
 
-const DEFAULT_MESSAGES = [{ role: "assistant", content: "妳好，我是〔懂妳〕。\n今天，怎麼了？" }];
-
-// 從對話中提煉記憶
-async function extractMemory(messages, apiKey) {
-  const conversationText = messages
-    .filter(m => m.role === 'user')
-    .map(m => m.content)
-    .join('\n');
-
-  if (!conversationText.trim()) return null;
-
-  try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": window.location.origin,
-        "X-Title": "Dongni Memory"
-      },
-      body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4-5",
-        messages: [
-          {
-            role: "system",
-            content: "你是一個記憶提煉助手。從以下對話中，提煉出關於這位女性的重要事實，用繁體中文簡短列出。只記錄她說的重要事件、感受、關[...]"
-          },
-          {
-            role: "user",
-            content: conversationText
-          }
-        ],
-        max_tokens: 300
-      })
-    });
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch (e) {
-    return null;
+const DEFAULT_MESSAGES = [
+  {
+    role: 'assistant',
+    content: '\u55e8\uff0c\u6211\u5728\u9019\u88e1\u966a\u59b3\u3002\u4eca\u5929\u60f3\u5148\u8ddf\u6211\u8aaa\u4ec0\u9ebc\u5462\uff1f'
   }
+];
+
+const idleNotice = '\u63d0\u9192\u59b3\uff0c\u9019\u6b21\u5c0d\u8a71\u5982\u679c 30 \u5206\u9418\u5167\u6c92\u6709\u8f38\u5165\u8a0a\u606f\uff0c\u5c31\u6703\u81ea\u52d5\u7d50\u675f\u3002';
+
+function formatTrialStatus(trialEndsAt) {
+  if (!trialEndsAt) return '';
+
+  const remainingMs = new Date(trialEndsAt).getTime() - Date.now();
+  if (remainingMs <= 0) return '';
+
+  const remainingDays = Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
+  return `\u514d\u8cbb\u9ad4\u9a57\u4e2d\uff0c\u5269 ${remainingDays} \u5929`;
+}
+
+function shouldOpenPricing(error) {
+  return error?.message?.includes('Plus') || error?.message?.includes('credit') || error?.message?.includes('\u6b21\u6578');
 }
 
 function App() {
   const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(false);
+  const [accessToken, setAccessToken] = useState('');
+  const [authLoading, setAuthLoading] = useState(true);
   const [messages, setMessages] = useState(() => {
     try {
-      const saved = localStorage.getItem("dongni_messages");
-      if (saved) return JSON.parse(saved).length > 0 ? JSON.parse(saved) : DEFAULT_MESSAGES;
-    } catch (e) {}
+      const saved = localStorage.getItem('dongni_messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed.length > 0 ? parsed : DEFAULT_MESSAGES;
+      }
+    } catch {}
     return DEFAULT_MESSAGES;
   });
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem("dongni_onboarding_completed"));
-  const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState(() => localStorage.getItem("dongni_disclaimer_agreed"));
-  const [memory, setMemory] = useState(() => localStorage.getItem("dongni_memory") || "");
-  const [currentPage, setCurrentPage] = useState('chat'); // 'chat' 或 'pricing'
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('dongni_onboarding_completed'));
+  const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState(() => localStorage.getItem('dongni_disclaimer_agreed'));
+  const [memory] = useState(() => localStorage.getItem('dongni_memory') || '');
+  const [currentPage, setCurrentPage] = useState('chat');
+  const [credits, setCredits] = useState(0);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [sessionExpiresAt, setSessionExpiresAt] = useState('');
+  const [trialActive, setTrialActive] = useState(false);
+  const [trialEndsAt, setTrialEndsAt] = useState('');
 
   const chatEndRef = useRef(null);
-  const OPENROUTER_API_KEY = "";
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-    });
+    setAuthLoading(true);
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        setUser(data.session?.user ?? null);
+        setAccessToken(data.session?.access_token ?? '');
+      })
+      .finally(() => {
+        setAuthLoading(false);
+      });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setAccessToken(session?.access_token ?? '');
     });
 
     return () => {
@@ -82,123 +80,199 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("dongni_messages", JSON.stringify(messages));
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const refreshCredits = useCallback(async () => {
+    if (!accessToken) {
+      setCredits(0);
+      return;
+    }
 
-    // 每累積10則用戶訊息，自動提煉一次記憶
-    const userMessages = messages.filter(m => m.role === 'user');
-    if (userMessages.length > 0 && userMessages.length % 10 === 0) {
-      extractMemory(messages, OPENROUTER_API_KEY).then(newMemory => {
-        if (newMemory) {
-          const existingMemory = localStorage.getItem("dongni_memory") || "";
-          const combined = existingMemory
-            ? existingMemory + "\n" + newMemory
-            : newMemory;
-          localStorage.setItem("dongni_memory", combined);
-          setMemory(combined);
+    setCreditsLoading(true);
+    try {
+      const response = await fetch('/api/credits', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
         }
       });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to fetch credits.');
+      setCredits(data.credits ?? 0);
+      setTrialActive(Boolean(data.trialActive));
+      setTrialEndsAt(data.trialEndsAt || '');
+    } catch (error) {
+      console.error(error);
+      setNotice('\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u5269\u9918\u6b21\u6578\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002');
+    } finally {
+      setCreditsLoading(false);
     }
+  }, [accessToken]);
+
+  const refreshConversationSession = useCallback(async () => {
+    if (!accessToken) {
+      setSessionExpiresAt('');
+      return;
+    }
+
+    try {
+      const data = await fetchConversationSession(accessToken);
+      setCredits(data.credits ?? 0);
+      setSessionExpiresAt(data.expiresAt || '');
+      setTrialActive(Boolean(data.trialActive));
+      setTrialEndsAt(data.trialEndsAt || '');
+    } catch (error) {
+      console.error(error);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!user?.id || !accessToken) return;
+
+    refreshCredits();
+    refreshConversationSession();
+
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    const paypalOrderId = params.get('token');
+
+    if (paymentStatus === 'paypal-success' && paypalOrderId) {
+      const captureKey = `dongni_paypal_capture_${paypalOrderId}`;
+      if (sessionStorage.getItem(captureKey)) return;
+      sessionStorage.setItem(captureKey, 'processing');
+
+      setNotice('PayPal \u4ed8\u6b3e\u78ba\u8a8d\u4e2d\uff0c\u8acb\u7a0d\u5019\u3002');
+      capturePayPalOrder(paypalOrderId, accessToken)
+        .then(() => {
+          setNotice('\u4ed8\u6b3e\u6210\u529f\uff0c\u5df2\u70ba\u59b3\u52a0\u4e0a Plus \u6b21\u6578\u3002');
+          window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+          refreshCredits();
+          refreshConversationSession();
+        })
+        .catch((error) => {
+          console.error(error);
+          sessionStorage.removeItem(captureKey);
+          setNotice(error.message || 'Unable to confirm PayPal payment.');
+        });
+    } else if (paymentStatus === 'cancel') {
+      setNotice('\u4ed8\u6b3e\u5df2\u53d6\u6d88\u3002');
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+    }
+  }, [user?.id, accessToken, refreshCredits, refreshConversationSession]);
+
+  useEffect(() => {
+    localStorage.setItem('dongni_messages', JSON.stringify(messages));
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleDisclaimerAgree = () => {
-    localStorage.setItem("dongni_disclaimer_agreed", "true");
+    localStorage.setItem('dongni_disclaimer_agreed', 'true');
     setHasAgreedDisclaimer(true);
   };
 
-  const handleSubmit = async (e) => {
-    e?.preventDefault();
+  const handleSubmit = async (event) => {
+    event?.preventDefault();
     if (!input.trim() || isLoading) return;
+
+    let activeSessionExpiresAt = sessionExpiresAt;
+    if (!activeSessionExpiresAt || new Date(activeSessionExpiresAt).getTime() <= Date.now()) {
+      try {
+        setNotice(idleNotice);
+        const session = await startConversationSession(accessToken);
+        activeSessionExpiresAt = session.expiresAt || '';
+        setSessionExpiresAt(activeSessionExpiresAt);
+        setCredits(session.credits ?? credits);
+        setTrialActive(Boolean(session.trialActive));
+        setTrialEndsAt(session.trialEndsAt || trialEndsAt);
+      } catch (error) {
+        setNotice(error.message || '\u7121\u6cd5\u958b\u59cb\u5c0d\u8a71\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002');
+        if (shouldOpenPricing(error)) {
+          setCurrentPage('pricing');
+        }
+        return;
+      }
+    }
 
     const userMessage = { role: 'user', content: input };
     const newMessages = [...messages, userMessage];
+    const aiMessageIndex = newMessages.length;
 
-    // 把記憶注入system message
-    const messagesWithMemory = memory
-      ? [{ role: 'system', content: `以下是妳對這位使用者的記憶，請在對話中自然地運用：\n${memory}` }, ...newMessages]
-      : newMessages;
-
-    setMessages(newMessages);
+    setMessages([...newMessages, { role: 'assistant', content: '' }]);
     setInput('');
     setIsLoading(true);
 
-    // 立即添加空的 AI 訊息（會被 streaming 內容填充）
-    const aiMessageIndex = newMessages.length;
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
     try {
-      let firstChunkReceived = false;
-      
-      await sendMessageToServer(messagesWithMemory, (chunk) => {
-        // 第一個 chunk 到達時，標記已收到
-        if (!firstChunkReceived) {
-          firstChunkReceived = true;
-        }
-
-        setMessages(prev => {
+      await sendMessageToServer(newMessages, (chunk) => {
+        setMessages((prev) => {
           const updated = [...prev];
           if (updated[aiMessageIndex]) {
             updated[aiMessageIndex].content += chunk;
           }
           return updated;
         });
-      });
+      }, memory, accessToken);
+
+      refreshCredits();
+      refreshConversationSession();
     } catch (error) {
       console.error(error);
-      setMessages(prev => {
+      setMessages((prev) => {
         const updated = [...prev];
         if (updated[aiMessageIndex]) {
-          updated[aiMessageIndex].content = '出錯了，請重試...';
+          updated[aiMessageIndex].content = error.message || '\u56de\u8986\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002';
         }
         return updated;
       });
+      if (shouldOpenPricing(error)) {
+        setNotice(error.message);
+        setCurrentPage('pricing');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  const handleInputKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       handleSubmit();
     }
   };
 
+  if (window.location.pathname === '/admin') {
+    return <AdminDashboard />;
+  }
+
   if (authLoading) {
-    return <div>載入中...</div>;
+    return <div>Loading...</div>;
   }
 
   if (!user) {
     return (
       <div
         style={{
-          height: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-          gap: "20px",
-          background: "transparent",
-          color: "white"
+          height: '100vh',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column',
+          gap: '20px',
+          background: 'transparent',
+          color: 'white'
         }}
       >
-        <h1>歡迎來到懂妳</h1>
-
+        <h1>{'\u9032\u5165\u61c2\u59b3'}</h1>
         <button
           onClick={async () => {
             await supabase.auth.signInWithOAuth({
-              provider: "google",
+              provider: 'google'
             });
           }}
           style={{
-            padding: "12px 24px",
-            borderRadius: "12px",
-            border: "none",
-            cursor: "pointer"
+            padding: '12px 24px',
+            borderRadius: '12px',
+            border: 'none',
+            cursor: 'pointer'
           }}
         >
-          使用 Google 登入
+          {'\u4f7f\u7528 Google \u767b\u5165'}
         </button>
       </div>
     );
@@ -206,14 +280,14 @@ function App() {
 
   if (!hasAgreedDisclaimer) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-stone-900 text-stone-300 p-6 text-center font-light">
-        <div className="max-w-md bg-stone-800 p-8 rounded-3xl space-y-6 border border-stone-700 shadow-xl">
-          <div className="text-xl tracking-widest text-stone-200">〔 歡迎來到 懂妳 〕</div>
-          <p className="text-xs leading-relaxed text-stone-400 text-left bg-stone-900 p-4 rounded-xl border border-stone-800">
-            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若您目前正處於嚴重的心理[...]
+      <div className="disclaimer-screen">
+        <div className="disclaimer-card">
+          <div className="disclaimer-title">{'\u9032\u5165\u61c2\u59b3\u4e4b\u524d'}</div>
+          <p className="disclaimer-copy">
+            {'\u672c\u5e73\u53f0\u7531 AI \u8a9e\u610f\u6a21\u578b\u9a45\u52d5\uff0c\u5c08\u6ce8\u65bc\u60c5\u7dd2\u966a\u4f34\u8207\u5fc3\u9748\u8212\u7de9\uff0c\u4e0d\u5177\u5099\u4efb\u4f55\u91ab\u7642\u3001\u5fc3\u7406\u8aee\u5546\u6216\u81e8\u5e8a\u8a3a\u65b7\u4e4b\u6cd5\u5f8b\u6548\u529b\u3002\u82e5\u59b3\u76ee\u524d\u8655\u65bc\u56b4\u91cd\u5fc3\u7406\u5371\u6a5f\u3001\u81ea\u50b7\u6216\u50b7\u4eba\u98a8\u96aa\uff0c\u8acb\u7acb\u5373\u806f\u7d61\u7576\u5730\u7dca\u6025\u670d\u52d9\u6216\u5c08\u696d\u652f\u63f4\u3002'}
           </p>
-          <button onClick={handleDisclaimerAgree} className="w-full py-3 rounded-full bg-stone-700 hover:bg-stone-600 text-sm tracking-widest text-stone-100 transition-colors shadow-md">
-            我理解，進入空間
+          <button onClick={handleDisclaimerAgree} className="disclaimer-button">
+            {'\u6211\u7406\u89e3\uff0c\u9032\u5165\u7a7a\u9593'}
           </button>
         </div>
       </div>
@@ -221,53 +295,51 @@ function App() {
   }
 
   if (showOnboarding) {
-    return <Onboarding onDone={() => { localStorage.setItem("dongni_onboarding_completed", "true"); setShowOnboarding(false); }} />;
+    return <Onboarding onDone={() => { localStorage.setItem('dongni_onboarding_completed', 'true'); setShowOnboarding(false); }} />;
   }
 
-  // 顯示付款頁
   if (currentPage === 'pricing') {
-    return <Pricing onBack={() => setCurrentPage('chat')} />;
+    return <Pricing onBack={() => { setCurrentPage('chat'); refreshCredits(); refreshConversationSession(); }} accessToken={accessToken} />;
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        margin: 0,
-        overflow: "hidden",
-        backgroundImage: "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/ocean.jpg.jpg')",
-        backgroundPosition: "center",
-        backgroundSize: "cover",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
-
-        <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
-          <button onClick={() => { localStorage.removeItem("dongni_onboarding_completed"); setShowOnboarding(true); }} className="hover:text-stone-300">重置檢測</button>
-          <div className="text-base text-stone-400 font-normal tracking-[0.25em]">【懂 妳】</div>
-          <button onClick={() => { setCurrentPage('pricing'); }} className="hover:text-stone-300">Plus</button>
+    <div className="app-shell">
+      <div className="chat-panel">
+        <div className="chat-header">
+          <button onClick={() => { localStorage.removeItem('dongni_onboarding_completed'); setShowOnboarding(true); }} className="chat-header-button">
+            {'\u91cd\u7f6e\u6aa2\u6e2c'}
+          </button>
+          <div className="chat-title">{'\u3010\u61c2 \u59b3\u3011'}</div>
+          <button onClick={() => { setCurrentPage('pricing'); }} className="chat-header-button">Plus</button>
         </div>
 
-        <div className={`flex-1 overflow-y-auto px-4 py-6 scrollbar-none ${
-          messages.length === 1
-            ? "flex flex-col justify-center"
-            : "space-y-8"
-        }`}
-        >
+        <div className="credit-status">
+          {creditsLoading
+            ? '\u6b63\u5728\u78ba\u8a8d\u5269\u9918\u6b21\u6578...'
+            : trialActive
+              ? `${formatTrialStatus(trialEndsAt)}\uff5c\u672a\u4f7f\u7528\u6b21\u6578 ${credits} \u6b21`
+              : `\u672a\u4f7f\u7528\u6b21\u6578 ${credits} \u6b21`}
+        </div>
+
+        {notice ? (
+          <button className="chat-notice" type="button" onClick={() => setNotice('')}>
+            {notice}
+          </button>
+        ) : null}
+
+        <div className={`chat-messages scrollbar-none ${messages.length === 1 ? 'chat-messages-centered' : 'chat-messages-spaced'}`}>
           {messages.map((msg, idx) => (
-            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}>
+            <div key={idx} className={`message-row ${msg.role === 'user' ? 'message-row-user' : 'message-row-assistant'}`}>
               {msg.role === 'user' ? (
-                <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide animate-fade-in">{msg.content}</div>
+                <div className="user-message-bubble animate-fade-in">{msg.content}</div>
               ) : (
-                <div className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] animate-fade-in">
+                <div className="ai-message-bubble animate-fade-in">
                   {msg.content || (isLoading && idx === messages.length - 1 ? (
-                    <div className="flex items-center gap-3">
-                      <span className="text-stone-400">懂妳正在傾聽中...</span>
+                    <div className="listening-indicator">
+                      <span>{'\u61c2\u59b3\u6b63\u5728\u807d\u59b3\u8aaa...'}</span>
                       <div className="breathing-glow" />
                     </div>
-                  ) : "")}
+                  ) : '')}
                 </div>
               )}
             </div>
@@ -275,28 +347,17 @@ function App() {
           <div ref={chatEndRef} />
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="py-4 sticky bottom-0 space-y-3"
-        >
+        <form onSubmit={handleSubmit} className="chat-form">
           <textarea
-            style={{
-              width: "100%",
-              minHeight: "320px",
-            }}
-            className="w-full p-6 rounded-3xl bg-stone-800/90 border border-white/10 text-stone-100 placeholder-stone-400 text-lg tracking-wide resize-none min-h-[320px]"
+            className="chat-input"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder="在這裡分享妳的想法..."
+            placeholder={'\u60f3\u8ddf\u6211\u8aaa\u4ec0\u9ebc\u90fd\u53ef\u4ee5...'}
             rows={14}
           />
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="w-full rounded-full bg-stone-100/90 px-5 py-3 text-sm font-medium tracking-widest text-stone-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:bg-stone-700/70 disabled:text-stone-400"
-          >
-            {isLoading ? '回應中...' : '送出'}
+          <button type="submit" disabled={!input.trim() || isLoading} className="chat-submit">
+            {isLoading ? '\u50b3\u9001\u4e2d...' : '\u9001\u51fa'}
           </button>
         </form>
       </div>

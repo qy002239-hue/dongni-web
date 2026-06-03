@@ -1,73 +1,120 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Pricing.css';
 
-function Pricing({ onBack }) {
-  const handlePayment = () => {
-    console.log("start one-time payment");
-    // TODO: 集成 Stripe Checkout API
-    // 当前仅输出日志，未来可接入真实支付系统
+const plans = [
+  {
+    id: 'dongni-plus-single',
+    name: 'Dongni Plus',
+    amount: '200',
+    period: '/ 1 credit',
+    type: 'One conversation credit',
+    button: 'Pay NT$200 with PayPal'
+  },
+  {
+    id: 'dongni-plus-six-pack',
+    name: 'Dongni Plus Six Pack',
+    amount: '1000',
+    period: '/ 6 credits',
+    type: 'Six credits, about NT$167 each',
+    button: 'Pay NT$1000 with PayPal',
+    highlight: 'Best value'
+  }
+];
+
+function Pricing({ onBack, accessToken }) {
+  const [payingPlan, setPayingPlan] = useState('');
+  const [error, setError] = useState('');
+
+  const handlePayment = async (planId) => {
+    if (payingPlan) return;
+
+    setPayingPlan(planId);
+    setError('');
+
+    try {
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          plan: planId
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || 'Unable to create PayPal checkout.');
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err.message || 'Unable to create PayPal checkout. Please try again later.');
+      setPayingPlan('');
+    }
   };
 
   return (
     <div className="pricing-container">
       <div className="pricing-content">
-        {/* 返回按钮 */}
         <div className="pricing-header">
-          <button
-            onClick={onBack}
-            className="pricing-back-btn"
-          >
-            ← 返回
+          <button onClick={onBack} className="pricing-back-btn" type="button">
+            Back
           </button>
-          <div className="pricing-title">【懂 妳 Plus】</div>
-          <div style={{ width: "60px" }}></div>
+          <div className="pricing-title">Dongni Plus</div>
+          <div style={{ width: '60px' }} />
         </div>
 
-        {/* 主要内容 */}
         <div className="pricing-main">
-          {/* 描述文案 */}
           <div className="pricing-description">
             <p className="pricing-text-primary">
-              有些話，不一定適合說給身邊的人聽。
+              Choose the amount of Dongni Plus credits you want to add.
             </p>
-            <p className="pricing-text-primary">
-              但妳不需要一直一個人吞下去。
-            </p>
-
             <p className="pricing-text-secondary">
-              懂妳會在這裡，聽妳說完。
-              <br />
-              不催妳、不評判妳、不把妳推去變得更好。
+              New users still get 3 free trial days. Paid credits are used after the trial ends.
             </p>
-
             <p className="pricing-text-secondary">
-              只是先陪妳，把今晚撐過去。
+              Each paid credit starts one conversation session. If there is no message for 30 minutes, that session ends.
             </p>
           </div>
 
-          {/* 價格卡片 */}
-          <div className="pricing-card">
-            <div className="pricing-plan-name">懂妳 Plus</div>
-            <div className="pricing-price">
-              <span className="currency">NT$</span>
-              <span className="amount">200</span>
-              <span className="period">/ 次</span>
-            </div>
-            <div className="pricing-type">單次付款，不會自動續費。</div>
+          <div className="pricing-plans">
+            {plans.map((plan) => (
+              <div className="pricing-card" key={plan.id}>
+                {plan.highlight ? (
+                  <div className="pricing-badge">{plan.highlight}</div>
+                ) : null}
+                <div className="pricing-plan-name">{plan.name}</div>
+                <div className="pricing-price">
+                  <span className="currency">NT$</span>
+                  <span className="amount">{plan.amount}</span>
+                  <span className="period">{plan.period}</span>
+                </div>
+                <div className="pricing-type">{plan.type}</div>
 
-            {/* 支付按钮 */}
-            <button
-              onClick={handlePayment}
-              className="pricing-payment-btn"
-            >
-              以 NT$200 開啟懂妳 Plus
-            </button>
-
-            {/* 底部声明 */}
-            <p className="pricing-disclaimer">
-              這是單次付款，不是訂閱，不會自動續費。懂妳不是醫療、心理治療或緊急救援服務；如果妳正處於立即危險，請立刻聯絡當地緊急資源。
-            </p>
+                <button
+                  onClick={() => handlePayment(plan.id)}
+                  className="pricing-payment-btn"
+                  type="button"
+                  disabled={Boolean(payingPlan) || !accessToken}
+                >
+                  {payingPlan === plan.id ? 'Opening PayPal...' : plan.button}
+                </button>
+              </div>
+            ))}
           </div>
+
+          {error ? (
+            <p className="pricing-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <p className="pricing-disclaimer">
+            Payments are processed by PayPal. Credits are added after PayPal confirms the payment.
+          </p>
         </div>
       </div>
     </div>
