@@ -67,6 +67,7 @@ function App() {
   const [trialEndsAt, setTrialEndsAt] = useState('');
 
   const chatEndRef = useRef(null);
+  const messageCountRef = useRef(messages.length);
 
   useEffect(() => {
     setAuthLoading(true);
@@ -168,7 +169,10 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('dongni_messages', JSON.stringify(messages));
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length !== messageCountRef.current) {
+      messageCountRef.current = messages.length;
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }, [messages]);
 
   const handleDisclaimerAgree = () => {
