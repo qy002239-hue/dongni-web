@@ -28,6 +28,11 @@ function Pricing({ onBack, accessToken }) {
   const handlePayment = async (planId) => {
     if (payingPlan) return;
 
+    if (!accessToken) {
+      setError('Please sign in with Google before starting PayPal checkout.');
+      return;
+    }
+
     setPayingPlan(planId);
     setError('');
 
@@ -78,6 +83,11 @@ function Pricing({ onBack, accessToken }) {
             <p className="pricing-text-secondary">
               Each paid credit starts one conversation session. If there is no message for 30 minutes, that session ends.
             </p>
+            {error ? (
+              <p className="pricing-error" role="alert">
+                {error}
+              </p>
+            ) : null}
           </div>
 
           <div className="pricing-plans">
@@ -98,19 +108,13 @@ function Pricing({ onBack, accessToken }) {
                   onClick={() => handlePayment(plan.id)}
                   className="pricing-payment-btn"
                   type="button"
-                  disabled={Boolean(payingPlan) || !accessToken}
+                  disabled={Boolean(payingPlan)}
                 >
                   {payingPlan === plan.id ? 'Opening PayPal...' : plan.button}
                 </button>
               </div>
             ))}
           </div>
-
-          {error ? (
-            <p className="pricing-error" role="alert">
-              {error}
-            </p>
-          ) : null}
 
           <p className="pricing-disclaimer">
             Payments are processed by PayPal. Credits are added after PayPal confirms the payment.
