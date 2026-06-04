@@ -11,18 +11,18 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 20px;
+  padding: 20px 48px 190px;
 }
 
 .dongni-chat-frame {
   width: 100%;
-  max-width: 640px;
+  max-width: 1180px;
   min-height: calc(100svh - 40px);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   position: relative;
-  padding-bottom: 24px;
+  padding-bottom: 0;
 }
 
 .dongni-chat-nav {
@@ -83,7 +83,7 @@
   flex: 0 1 auto;
   min-height: 280px;
   overflow: visible;
-  padding: 36px 16px 24px;
+  padding: 36px 24px 44px;
 }
 
 .dongni-message-list-centered {
@@ -111,7 +111,7 @@
 }
 
 .dongni-user-bubble {
-  max-width: 80%;
+  max-width: min(520px, 58%);
   padding: 12px 20px;
   border-radius: 16px;
   border: 1px solid #44403c;
@@ -146,16 +146,21 @@
 }
 
 .dongni-chat-form {
-  position: relative;
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 20;
   flex-shrink: 0;
-  padding: 10px 0 0;
+  width: min(960px, calc(100vw - 96px));
+  padding: 0;
 }
 
 .dongni-chat-input {
   box-sizing: border-box;
   width: 100%;
-  min-height: 132px;
-  max-height: 28svh;
+  min-height: 112px;
+  max-height: 22svh;
   padding: 18px 24px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -166,6 +171,7 @@
   letter-spacing: 0;
   resize: none;
   outline: none;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
 }
 
 .dongni-chat-input::placeholder {
@@ -465,16 +471,17 @@
 @media (max-width: 640px) {
   .dongni-ocean-page {
     align-items: flex-start;
-    padding: 12px;
+    padding: 12px 12px 166px;
   }
 
   .dongni-chat-frame {
     min-height: calc(100svh - 24px);
+    max-width: none;
   }
 
   .dongni-message-list {
     min-height: 260px;
-    padding: 28px 8px 18px;
+    padding: 28px 8px 24px;
   }
 
   .dongni-ai-message {
@@ -484,11 +491,17 @@
 
   .dongni-user-bubble {
     font-size: 15px;
+    max-width: 82%;
+  }
+
+  .dongni-chat-form {
+    bottom: 10px;
+    width: calc(100vw - 24px);
   }
 
   .dongni-chat-input {
-    min-height: 120px;
-    max-height: 24svh;
+    min-height: 104px;
+    max-height: 22svh;
     padding: 18px;
     font-size: 16px;
   }

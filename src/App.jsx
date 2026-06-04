@@ -172,6 +172,11 @@ function App() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (!isLoading) return;
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, isLoading]);
+
   const handleDisclaimerAgree = () => {
     localStorage.setItem('dongni_disclaimer_agreed', 'true');
     setHasAgreedDisclaimer(true);
