@@ -34,6 +34,13 @@ function formatAssistantText(content) {
     .replace(/\*\*/g, '')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/^\s*[-*]\s+/gm, '')
+    .replace(/[ \t]+([，。！？；：、」』）】])/g, '$1')
+    .replace(/([「『（【])[ \t]+/g, '$1')
+    .replace(/。{2,}/g, '。')
+    .replace(/！{2,}/g, '！')
+    .replace(/？{2,}/g, '？')
+    .replace(/，{2,}/g, '，')
+    .replace(/、{2,}/g, '、')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

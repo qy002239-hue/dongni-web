@@ -14,6 +14,11 @@ Rules for every reply:
 - Do not use **, headings, numbered lists, tables, bullet points, or decorative symbols.
 - Do not bold any sentence.
 - Keep paragraphs short. One idea per paragraph.
+- Each paragraph should read like a complete human sentence.
+- Write natural Traditional Chinese. Do not create broken or unnatural sentence fragments.
+- Do not add spaces between Chinese words unless the space is around a number or an English word.
+- Do not repeat the same phrase or sentence ending.
+- Do not repeat punctuation such as "。。", "！！", "？？", or "、、".
 - Avoid long lines that try to sound dramatic. Let the sentence breathe.
 - Do not say empty generic comfort like "我懂妳的感受".
 - Do not over-explain. Do not lecture.
@@ -72,6 +77,13 @@ function cleanModelText(text) {
     .replace(/\*\*/g, '')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/^\s*[-*]\s+/gm, '')
+    .replace(/[ \t]+([，。！？；：、」』）】])/g, '$1')
+    .replace(/([「『（【])[ \t]+/g, '$1')
+    .replace(/。{2,}/g, '。')
+    .replace(/！{2,}/g, '！')
+    .replace(/？{2,}/g, '？')
+    .replace(/，{2,}/g, '，')
+    .replace(/、{2,}/g, '、')
     .replace(/\n{3,}/g, '\n\n');
 }
 
@@ -89,7 +101,7 @@ export default async function handler(req, res) {
   const messages = sanitizeMessages(body.messages);
 
   if (!messages.length) {
-    return res.status(400).json({ error: '請先輸入想說的話。' });
+    return res.status(400).json({ error: '請先輸入想說的內容。' });
   }
 
   try {
@@ -102,7 +114,7 @@ export default async function handler(req, res) {
     if (sessionError) throw sessionError;
 
     if (!expiresAt) {
-      return res.status(402).json({ error: 'Plus 次數已用完，請先購買次數。' });
+      return res.status(402).json({ error: 'Plus 次數已用完，請先補充次數。' });
     }
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
