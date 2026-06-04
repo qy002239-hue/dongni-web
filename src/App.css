@@ -1,17 +1,42 @@
+.dongni-ocean-page,
+.dongni-ocean-page::before,
+.dongni-ocean-page::after {
+  box-sizing: border-box;
+}
+
 .dongni-ocean-page {
   min-height: 100svh;
   width: 100%;
   margin: 0;
   overflow-y: auto;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url('/ocean.jpg.jpg');
-  background-attachment: fixed;
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
+  overflow-x: hidden;
+  background: #02070d;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 20px 48px 190px;
+  position: relative;
+  isolation: isolate;
+}
+
+.dongni-ocean-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: url('/ocean.jpg.jpg');
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.dongni-ocean-page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
 }
 
 .dongni-chat-frame {
