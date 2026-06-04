@@ -42,16 +42,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState('');
   const [authLoading, setAuthLoading] = useState(true);
-  const [messages, setMessages] = useState(() => {
-    try {
-      const saved = localStorage.getItem('dongni_messages');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.length > 0 ? parsed : DEFAULT_MESSAGES;
-      }
-    } catch {}
-    return DEFAULT_MESSAGES;
-  });
+  const [messages, setMessages] = useState(DEFAULT_MESSAGES);
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -169,7 +160,7 @@ function App() {
   }, [user?.id, accessToken, refreshCredits, refreshConversationSession]);
 
   useEffect(() => {
-    localStorage.setItem('dongni_messages', JSON.stringify(messages));
+    localStorage.removeItem('dongni_messages');
     if (messages.length !== messageCountRef.current) {
       const lastMessage = messages[messages.length - 1];
       messageCountRef.current = messages.length;
