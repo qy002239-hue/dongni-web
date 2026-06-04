@@ -165,9 +165,9 @@ function App() {
       const lastMessage = messages[messages.length - 1];
       messageCountRef.current = messages.length;
       if (lastMessage?.role === 'assistant') {
-        latestAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        latestAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }
     }
   }, [messages]);
@@ -379,7 +379,7 @@ function App() {
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleInputKeyDown}
             placeholder={'\u60f3\u8ddf\u6211\u8aaa\u4ec0\u9ebc\u90fd\u53ef\u4ee5...'}
-            rows={14}
+            rows={4}
           />
           <button
             type="submit"

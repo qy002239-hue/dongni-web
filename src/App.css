@@ -1,26 +1,28 @@
 .dongni-ocean-page {
-  position: fixed;
-  inset: 0;
+  min-height: 100svh;
+  width: 100%;
   margin: 0;
-  overflow: hidden;
+  overflow-y: auto;
   background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url('/ocean.jpg.jpg');
+  background-attachment: fixed;
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   padding: 20px;
 }
 
 .dongni-chat-frame {
   width: 100%;
   max-width: 640px;
-  height: 85vh;
+  min-height: calc(100svh - 40px);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   position: relative;
+  padding-bottom: 24px;
 }
 
 .dongni-chat-nav {
@@ -78,10 +80,10 @@
 }
 
 .dongni-message-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 24px 16px;
+  flex: 0 1 auto;
+  min-height: 280px;
+  overflow: visible;
+  padding: 36px 16px 24px;
 }
 
 .dongni-message-list-centered {
@@ -132,7 +134,7 @@
   white-space: pre-line;
   overflow-wrap: anywhere;
   text-align: left;
-  scroll-margin-top: 18px;
+  scroll-margin-top: 120px;
 }
 
 .dongni-listening {
@@ -144,17 +146,17 @@
 }
 
 .dongni-chat-form {
-  position: sticky;
-  bottom: 0;
+  position: relative;
   flex-shrink: 0;
-  padding: 16px 0;
+  padding: 10px 0 0;
 }
 
 .dongni-chat-input {
   box-sizing: border-box;
   width: 100%;
-  min-height: 320px;
-  padding: 24px;
+  min-height: 132px;
+  max-height: 28svh;
+  padding: 18px 24px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(41, 37, 36, 0.9);
@@ -467,11 +469,12 @@
   }
 
   .dongni-chat-frame {
-    height: 92svh;
+    min-height: calc(100svh - 24px);
   }
 
   .dongni-message-list {
-    padding: 18px 8px;
+    min-height: 260px;
+    padding: 28px 8px 18px;
   }
 
   .dongni-ai-message {
@@ -484,7 +487,8 @@
   }
 
   .dongni-chat-input {
-    min-height: 240px;
+    min-height: 120px;
+    max-height: 24svh;
     padding: 18px;
     font-size: 16px;
   }
