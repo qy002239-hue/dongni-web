@@ -53,6 +53,7 @@ function App() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const activeStreamRef = useRef(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('dongni_onboarding_completed'));
   const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState(() => localStorage.getItem('dongni_disclaimer_agreed'));
   const [memory] = useState(() => localStorage.getItem('dongni_memory') || '');
@@ -191,7 +192,8 @@ function App() {
 
   const handleSubmit = async (event) => {
     event?.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || activeStreamRef.current) return;
+    activeStreamRef.current = true;
 
     let activeSessionExpiresAt = sessionExpiresAt;
     if (!activeSessionExpiresAt || new Date(activeSessionExpiresAt).getTime() <= Date.now()) {
@@ -208,6 +210,7 @@ function App() {
         if (shouldOpenPricing(error)) {
           setCurrentPage('pricing');
         }
+        activeStreamRef.current = false;
         return;
       }
     }
@@ -222,31 +225,28 @@ function App() {
 
     try {
       await sendMessageToServer(newMessages, (chunk) => {
-        setMessages((prev) => {
-          const updated = [...prev];
-          if (updated[aiMessageIndex]) {
-            updated[aiMessageIndex].content += chunk;
-          }
-          return updated;
-        });
+        setMessages((prev) => prev.map((message, index) => (
+          index === aiMessageIndex
+            ? { ...message, content: `${message.content || ''}${chunk}` }
+            : message
+        )));
       }, memory, accessToken);
 
       refreshCredits();
       refreshConversationSession();
     } catch (error) {
       console.error(error);
-      setMessages((prev) => {
-        const updated = [...prev];
-        if (updated[aiMessageIndex]) {
-          updated[aiMessageIndex].content = error.message || '\u56de\u8986\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002';
-        }
-        return updated;
-      });
+      setMessages((prev) => prev.map((message, index) => (
+        index === aiMessageIndex
+          ? { ...message, content: error.message || '\u56de\u8986\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002' }
+          : message
+      )));
       if (shouldOpenPricing(error)) {
         setNotice(error.message);
         setCurrentPage('pricing');
       }
     } finally {
+      activeStreamRef.current = false;
       setIsLoading(false);
     }
   };
@@ -371,7 +371,7 @@ function App() {
                   ref={idx === messages.length - 1 ? latestAssistantRef : null}
                   className="dongni-ai-message animate-fade-in"
                 >
-                  {msg.content ? formatAssistantText(msg.content) : (isLoading && idx === messages.length - 1 ? (
+                  {msg.content ? (isLoading && idx === messages.length - 1 ? msg.content : formatAssistantText(msg.content)) : (isLoading && idx === messages.length - 1 ? (
                     <div className="dongni-listening">
                       <span>{'\u61c2\u59b3\u6b63\u5728\u807d\u59b3\u8aaa...'}</span>
                       <div className="breathing-glow" />
