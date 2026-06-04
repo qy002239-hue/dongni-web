@@ -52,26 +52,10 @@ function buildSystemPrompt(memory) {
 
   return `${SYSTEM_PROMPT}
 
-User memory:
-Use this only as quiet context. Do not repeat it unless it is relevant.
-
+# User Memory
+以下是妳對這位使用者的記憶，請在對話中自然地運用，不要直接列出：
 ${trimmedMemory.slice(0, 3000)}
 `;
-}
-
-function cleanModelText(text) {
-  return String(text || '')
-    .replace(/\*\*/g, '')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/^\s*[-*]\s+/gm, '')
-    .replace(/[ \t]+([，。！？；：、」』）】])/g, '$1')
-    .replace(/([「『（【])[ \t]+/g, '$1')
-    .replace(/。{2,}/g, '。')
-    .replace(/！{2,}/g, '！')
-    .replace(/？{2,}/g, '？')
-    .replace(/，{2,}/g, '，')
-    .replace(/、{2,}/g, '、')
-    .replace(/\n{3,}/g, '\n\n');
 }
 
 export default async function handler(req, res) {
@@ -81,14 +65,14 @@ export default async function handler(req, res) {
   }
 
   if (!process.env.OPENROUTER_API_KEY) {
-    return res.status(500).json({ error: 'OPENROUTER_API_KEY is not configured.' });
+    return res.status(500).json({ error: '尚未設定 OPENROUTER_API_KEY' });
   }
 
   const body = parseBody(req);
   const messages = sanitizeMessages(body.messages);
 
   if (!messages.length) {
-    return res.status(400).json({ error: '請先輸入想說的內容。' });
+    return res.status(400).json({ error: '缺少對話內容' });
   }
 
   try {
@@ -101,7 +85,7 @@ export default async function handler(req, res) {
     if (sessionError) throw sessionError;
 
     if (!expiresAt) {
-      return res.status(402).json({ error: 'Plus 次數已用完，請先補充次數。' });
+      return res.status(402).json({ error: '妳的 Plus 次數已用完，請先購買次數。' });
     }
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -126,7 +110,7 @@ export default async function handler(req, res) {
     if (!openRouterResponse.ok) {
       const errorText = await openRouterResponse.text();
       console.error('OpenRouter error:', errorText);
-      return res.status(openRouterResponse.status).json({ error: '暫時無法取得回覆，請稍後再試。' });
+      return res.status(openRouterResponse.status).json({ error: '聊天服務暫時無法回應' });
     }
 
     res.writeHead(200, {
@@ -168,8 +152,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('chat error:', error);
     if (!res.headersSent) {
-      const status = error.message?.includes('login') ? 401 : 500;
-      return res.status(status).json({ error: error.message || '暫時無法取得回覆，請稍後再試。' });
+      const status = error.message?.includes('登入') ? 401 : 500;
+      return res.status(status).json({ error: error.message || '聊天服務暫時無法回應' });
     }
     return res.end();
   }

@@ -353,22 +353,20 @@
   color: #e7e5e4;
   font-size: var(--text-size-bubble, 16px);
   line-height: var(--line-height, 1.65);
-  letter-spacing: 0;
+  letter-spacing: 0.04em;
   word-break: break-word;
   overflow-wrap: break-word;
 }
 
 .ai-message-bubble {
-  width: 100%;
-  max-width: 100%;
+  max-width: 90%;
   color: #f5f5f4;
   font-size: var(--text-size-ai, 18px);
   line-height: var(--line-height, 1.65);
-  letter-spacing: 0;
-  white-space: pre-line;
-  word-break: normal;
-  overflow-wrap: anywhere;
-  text-align: left;
+  letter-spacing: 0.04em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .listening-indicator {
@@ -396,7 +394,7 @@
   color: #f5f5f4;
   font-size: 18px;
   line-height: 1.65;
-  letter-spacing: 0;
+  letter-spacing: 0.04em;
   resize: none;
   outline: none;
 }
