@@ -322,28 +322,17 @@ function App() {
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        margin: 0,
-        overflow: 'hidden',
-        backgroundImage: "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/ocean.jpg.jpg')",
-        backgroundPosition: 'center',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
-      <div className="w-full max-w-xl flex flex-col h-[85vh] justify-between relative">
-        <div className="flex justify-between items-center py-2 px-4 text-xs text-stone-500 tracking-widest">
-          <button onClick={() => { localStorage.removeItem('dongni_onboarding_completed'); setShowOnboarding(true); }} className="hover:text-stone-300">
+    <div className="dongni-ocean-page">
+      <div className="dongni-chat-frame">
+        <div className="dongni-chat-nav">
+          <button onClick={() => { localStorage.removeItem('dongni_onboarding_completed'); setShowOnboarding(true); }} className="dongni-nav-button">
             {'\u91cd\u7f6e\u6aa2\u6e2c'}
           </button>
-          <div className="text-base text-stone-400 font-normal tracking-[0.25em]">{'\u3010\u61c2 \u59b3\u3011'}</div>
-          <button onClick={() => { setCurrentPage('pricing'); }} className="hover:text-stone-300">Plus</button>
+          <div className="dongni-chat-title">{'\u3010\u61c2 \u59b3\u3011'}</div>
+          <button onClick={() => { setCurrentPage('pricing'); }} className="dongni-nav-button">Plus</button>
         </div>
 
-        <div className="text-center text-xs text-stone-300 tracking-widest">
+        <div className="dongni-credit-line">
           {creditsLoading
             ? '\u6b63\u5728\u78ba\u8a8d\u5269\u9918\u6b21\u6578...'
             : trialActive
@@ -353,7 +342,7 @@ function App() {
 
         {notice ? (
           <button
-            className="mx-4 rounded-xl border border-teal-200/25 bg-slate-950/40 px-4 py-3 text-sm tracking-wide text-stone-100"
+            className="dongni-notice"
             type="button"
             onClick={() => setNotice('')}
           >
@@ -362,26 +351,26 @@ function App() {
         ) : null}
 
         <div
-          className={`flex-1 overflow-y-auto px-4 py-6 scrollbar-none ${
+          className={`dongni-message-list scrollbar-none ${
             messages.length === 1
-              ? 'flex flex-col justify-center'
-              : 'space-y-8'
+              ? 'dongni-message-list-centered'
+              : 'dongni-message-list-spaced'
           }`}
         >
           {messages.map((msg, idx) => (
-            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-center text-center'}`}>
+            <div key={idx} className={`dongni-message-row ${msg.role === 'user' ? 'dongni-message-row-user' : 'dongni-message-row-assistant'}`}>
               {msg.role === 'user' ? (
-                <div className="bg-stone-800 text-stone-200 border border-stone-700 px-5 py-3 rounded-2xl max-w-[80%] text-sm tracking-wide animate-fade-in">
+                <div className="dongni-user-bubble animate-fade-in">
                   {msg.content}
                 </div>
               ) : (
                 <div
                   ref={idx === messages.length - 1 ? latestAssistantRef : null}
-                  className="whitespace-pre-line text-lg leading-loose tracking-wide text-stone-100 max-w-[90%] animate-fade-in scroll-mt-6"
+                  className="dongni-ai-message animate-fade-in"
                 >
                   {msg.content ? formatAssistantText(msg.content) : (isLoading && idx === messages.length - 1 ? (
-                    <div className="flex items-center gap-3">
-                      <span className="text-stone-400">{'\u61c2\u59b3\u6b63\u5728\u807d\u59b3\u8aaa...'}</span>
+                    <div className="dongni-listening">
+                      <span>{'\u61c2\u59b3\u6b63\u5728\u807d\u59b3\u8aaa...'}</span>
                       <div className="breathing-glow" />
                     </div>
                   ) : '')}
@@ -392,13 +381,9 @@ function App() {
           <div ref={chatEndRef} />
         </div>
 
-        <form onSubmit={handleSubmit} className="py-4 sticky bottom-0 space-y-3">
+        <form onSubmit={handleSubmit} className="dongni-chat-form">
           <textarea
-            style={{
-              width: '100%',
-              minHeight: '320px',
-            }}
-            className="w-full p-6 rounded-3xl bg-stone-800/90 border border-white/10 text-stone-100 placeholder-stone-400 text-lg tracking-wide resize-none min-h-[320px]"
+            className="dongni-chat-input"
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleInputKeyDown}
@@ -408,7 +393,7 @@ function App() {
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="w-full rounded-full bg-stone-100/90 px-5 py-3 text-sm font-medium tracking-widest text-stone-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:bg-stone-700/70 disabled:text-stone-400"
+            className="dongni-chat-submit"
           >
             {isLoading ? '\u50b3\u9001\u4e2d...' : '\u9001\u51fa'}
           </button>
