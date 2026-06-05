@@ -9,11 +9,24 @@ import './App.css';
 const DEFAULT_MESSAGES = [
   {
     role: 'assistant',
-    content: '\u55e8\uff0c\u6211\u5728\u9019\u88e1\u966a\u59b3\u3002\u4eca\u5929\u60f3\u5148\u8ddf\u6211\u8aaa\u4ec0\u9ebc\u5462\uff1f'
+    content: '嗨，我在這裡陪妳。今天想先跟我說什麼呢？'
   }
 ];
 
-const idleNotice = '\u63d0\u9192\u59b3\uff0c\u9019\u6b21\u5c0d\u8a71\u5982\u679c 30 \u5206\u9418\u5167\u6c92\u6709\u8f38\u5165\u8a0a\u606f\uff0c\u5c31\u6703\u81ea\u52d5\u7d50\u675f\u3002';
+const idleNotice = '提醒妳，這次對話如果 30 分鐘內沒有輸入訊息，就會自動結束。';
+const onboardingKey = 'dongni_onboarding_completed';
+const disclaimerKey = 'dongni_disclaimer_agreed';
+const pendingPaypalOrderKey = 'dongni_pending_paypal_order';
+const localE2EToken = 'local-e2e-token';
+
+function isLocalE2E() {
+  const host = window.location.hostname;
+  return ['localhost', '127.0.0.1'].includes(host) && new URLSearchParams(window.location.search).get('e2e') === '1';
+}
+
+function withE2E(path) {
+  return isLocalE2E() ? `${path}${path.includes('?') ? '&' : '?'}e2e=1` : path;
+}
 
 function formatTrialStatus(trialEndsAt) {
   if (!trialEndsAt) return '';
@@ -22,11 +35,15 @@ function formatTrialStatus(trialEndsAt) {
   if (remainingMs <= 0) return '';
 
   const remainingDays = Math.max(1, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)));
-  return `\u514d\u8cbb\u9ad4\u9a57\u4e2d\uff0c\u5269 ${remainingDays} \u5929`;
+  return `免費體驗中，剩 ${remainingDays} 天`;
 }
 
 function shouldOpenPricing(error) {
-  return error?.message?.includes('Plus') || error?.message?.includes('credit') || error?.message?.includes('\u6b21\u6578');
+  return error?.message?.includes('Plus') || error?.message?.includes('credit') || error?.message?.includes('次數');
+}
+
+function getInitialPage() {
+  return window.location.pathname === '/pricing' ? 'pricing' : 'chat';
 }
 
 function App() {
@@ -38,10 +55,10 @@ function App() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const activeStreamRef = useRef(false);
-  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem('dongni_onboarding_completed'));
-  const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState(() => localStorage.getItem('dongni_disclaimer_agreed'));
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(onboardingKey));
+  const [hasAgreedDisclaimer, setHasAgreedDisclaimer] = useState(() => localStorage.getItem(disclaimerKey) === 'true');
   const [memory] = useState(() => localStorage.getItem('dongni_memory') || '');
-  const [currentPage, setCurrentPage] = useState('chat');
+  const [currentPage, setCurrentPage] = useState(getInitialPage);
   const [credits, setCredits] = useState(0);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [notice, setNotice] = useState('');
@@ -53,7 +70,24 @@ function App() {
   const latestAssistantRef = useRef(null);
   const messageCountRef = useRef(messages.length);
 
+  const openPricing = useCallback(() => {
+    setCurrentPage('pricing');
+    window.history.replaceState({}, '', withE2E('/pricing'));
+  }, []);
+
+  const openChat = useCallback(() => {
+    setCurrentPage('chat');
+    window.history.replaceState({}, '', withE2E('/'));
+  }, []);
+
   useEffect(() => {
+    if (isLocalE2E()) {
+      setUser({ id: 'local-e2e-user', email: 'local-e2e@dongni.test' });
+      setAccessToken(localE2EToken);
+      setAuthLoading(false);
+      return undefined;
+    }
+
     setAuthLoading(true);
     supabase.auth.getSession()
       .then(({ data }) => {
@@ -74,9 +108,56 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return undefined;
+
+    const updateKeyboardInset = () => {
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      document.documentElement.style.setProperty('--keyboard-inset', `${Math.round(inset)}px`);
+    };
+
+    updateKeyboardInset();
+    viewport.addEventListener('resize', updateKeyboardInset);
+    viewport.addEventListener('scroll', updateKeyboardInset);
+
+    return () => {
+      viewport.removeEventListener('resize', updateKeyboardInset);
+      viewport.removeEventListener('scroll', updateKeyboardInset);
+      document.documentElement.style.removeProperty('--keyboard-inset');
+    };
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    const paypalOrderId = params.get('token');
+
+    if (paymentStatus === 'paypal-success' && paypalOrderId) {
+      sessionStorage.setItem(pendingPaypalOrderKey, paypalOrderId);
+      setNotice('PayPal 付款確認中，請稍候。');
+      window.history.replaceState({}, '', withE2E('/'));
+      setCurrentPage('chat');
+      return;
+    }
+
+    if (paymentStatus === 'cancel') {
+      setNotice('付款已取消。');
+      window.history.replaceState({}, '', withE2E('/pricing'));
+      setCurrentPage('pricing');
+    }
+  }, []);
+
   const refreshCredits = useCallback(async () => {
     if (!accessToken) {
       setCredits(0);
+      return;
+    }
+
+    if (accessToken === localE2EToken && isLocalE2E()) {
+      setCredits(6);
+      setTrialActive(true);
+      setTrialEndsAt(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString());
       return;
     }
 
@@ -94,7 +175,7 @@ function App() {
       setTrialEndsAt(data.trialEndsAt || '');
     } catch (error) {
       console.error(error);
-      setNotice('\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u5269\u9918\u6b21\u6578\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002');
+      setNotice('暫時無法取得剩餘次數，請稍後再試。');
     } finally {
       setCreditsLoading(false);
     }
@@ -122,33 +203,33 @@ function App() {
 
     refreshCredits();
     refreshConversationSession();
+  }, [user?.id, accessToken, refreshCredits, refreshConversationSession]);
 
-    const params = new URLSearchParams(window.location.search);
-    const paymentStatus = params.get('payment');
-    const paypalOrderId = params.get('token');
+  useEffect(() => {
+    if (!user?.id || !accessToken) return;
 
-    if (paymentStatus === 'paypal-success' && paypalOrderId) {
-      const captureKey = `dongni_paypal_capture_${paypalOrderId}`;
-      if (sessionStorage.getItem(captureKey)) return;
-      sessionStorage.setItem(captureKey, 'processing');
+    const paypalOrderId = sessionStorage.getItem(pendingPaypalOrderKey);
+    if (!paypalOrderId) return;
 
-      setNotice('PayPal \u4ed8\u6b3e\u78ba\u8a8d\u4e2d\uff0c\u8acb\u7a0d\u5019\u3002');
-      capturePayPalOrder(paypalOrderId, accessToken)
-        .then(() => {
-          setNotice('\u4ed8\u6b3e\u6210\u529f\uff0c\u5df2\u70ba\u59b3\u52a0\u4e0a Plus \u6b21\u6578\u3002');
-          window.history.replaceState({}, '', window.location.pathname + window.location.hash);
-          refreshCredits();
-          refreshConversationSession();
-        })
-        .catch((error) => {
-          console.error(error);
-          sessionStorage.removeItem(captureKey);
-          setNotice(error.message || 'Unable to confirm PayPal payment.');
-        });
-    } else if (paymentStatus === 'cancel') {
-      setNotice('\u4ed8\u6b3e\u5df2\u53d6\u6d88\u3002');
-      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+    const completedKey = `dongni_paypal_completed_${paypalOrderId}`;
+    if (sessionStorage.getItem(completedKey)) {
+      sessionStorage.removeItem(pendingPaypalOrderKey);
+      return;
     }
+
+    setNotice('PayPal 付款確認中，請稍候。');
+    capturePayPalOrder(paypalOrderId, accessToken)
+      .then(() => {
+        sessionStorage.setItem(completedKey, 'true');
+        sessionStorage.removeItem(pendingPaypalOrderKey);
+        setNotice('付款成功，已為妳加上 Plus 次數。');
+        refreshCredits();
+        refreshConversationSession();
+      })
+      .catch((error) => {
+        console.error(error);
+        setNotice(error.message || 'Unable to confirm PayPal payment.');
+      });
   }, [user?.id, accessToken, refreshCredits, refreshConversationSession]);
 
   useEffect(() => {
@@ -169,9 +250,36 @@ function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, isLoading]);
 
+  const handleOnboardingDone = () => {
+    localStorage.setItem(onboardingKey, 'true');
+    setShowOnboarding(false);
+  };
+
   const handleDisclaimerAgree = () => {
-    localStorage.setItem('dongni_disclaimer_agreed', 'true');
+    localStorage.setItem(disclaimerKey, 'true');
     setHasAgreedDisclaimer(true);
+  };
+
+  const handleGoogleLogin = async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        skipBrowserRedirect: true
+      }
+    });
+
+    if (error) {
+      setNotice(error.message || 'Google 登入暫時無法開啟，請稍後再試。');
+      return;
+    }
+
+    if (data?.url) {
+      window.location.assign(data.url);
+      return;
+    }
+
+    setNotice('Google 登入暫時無法開啟，請稍後再試。');
   };
 
   const handleSubmit = async (event) => {
@@ -190,9 +298,9 @@ function App() {
         setTrialActive(Boolean(session.trialActive));
         setTrialEndsAt(session.trialEndsAt || trialEndsAt);
       } catch (error) {
-        setNotice(error.message || '\u7121\u6cd5\u958b\u59cb\u5c0d\u8a71\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002');
+        setNotice(error.message || '無法開始對話，請稍後再試。');
         if (shouldOpenPricing(error)) {
-          setCurrentPage('pricing');
+          openPricing();
         }
         activeStreamRef.current = false;
         return;
@@ -222,12 +330,12 @@ function App() {
       console.error(error);
       setMessages((prev) => prev.map((message, index) => (
         index === aiMessageIndex
-          ? { ...message, content: error.message || '\u56de\u8986\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002' }
+          ? { ...message, content: error.message || '回覆失敗，請稍後再試。' }
           : message
       )));
       if (shouldOpenPricing(error)) {
         setNotice(error.message);
-        setCurrentPage('pricing');
+        openPricing();
       }
     } finally {
       activeStreamRef.current = false;
@@ -246,85 +354,78 @@ function App() {
     return <AdminDashboard />;
   }
 
-  if (authLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!user) {
+  if (currentPage === 'pricing') {
     return (
-      <div
-        style={{
-          height: '100vh',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          flexDirection: 'column',
-          gap: '20px',
-          background: 'transparent',
-          color: 'white'
-        }}
-      >
-        <h1>{'\u9032\u5165\u61c2\u59b3'}</h1>
-        <button
-          onClick={async () => {
-            await supabase.auth.signInWithOAuth({
-              provider: 'google'
-            });
-          }}
-          style={{
-            padding: '12px 24px',
-            borderRadius: '12px',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          {'\u4f7f\u7528 Google \u767b\u5165'}
-        </button>
-      </div>
-    );
-  }
-
-  if (!hasAgreedDisclaimer) {
-    return (
-      <div className="disclaimer-screen">
-        <div className="disclaimer-card">
-          <div className="disclaimer-title">{'\u9032\u5165\u61c2\u59b3\u4e4b\u524d'}</div>
-          <p className="disclaimer-copy">
-            {'\u672c\u5e73\u53f0\u7531 AI \u8a9e\u610f\u6a21\u578b\u9a45\u52d5\uff0c\u5c08\u6ce8\u65bc\u60c5\u7dd2\u966a\u4f34\u8207\u5fc3\u9748\u8212\u7de9\uff0c\u4e0d\u5177\u5099\u4efb\u4f55\u91ab\u7642\u3001\u5fc3\u7406\u8aee\u5546\u6216\u81e8\u5e8a\u8a3a\u65b7\u4e4b\u6cd5\u5f8b\u6548\u529b\u3002\u82e5\u59b3\u76ee\u524d\u8655\u65bc\u56b4\u91cd\u5fc3\u7406\u5371\u6a5f\u3001\u81ea\u50b7\u6216\u50b7\u4eba\u98a8\u96aa\uff0c\u8acb\u7acb\u5373\u806f\u7d61\u7576\u5730\u7dca\u6025\u670d\u52d9\u6216\u5c08\u696d\u652f\u63f4\u3002'}
-          </p>
-          <button onClick={handleDisclaimerAgree} className="disclaimer-button">
-            {'\u6211\u7406\u89e3\uff0c\u9032\u5165\u7a7a\u9593'}
-          </button>
-        </div>
-      </div>
+      <Pricing
+        accessToken={accessToken}
+        onBack={openChat}
+        onLogin={handleGoogleLogin}
+      />
     );
   }
 
   if (showOnboarding) {
-    return <Onboarding onDone={() => { localStorage.setItem('dongni_onboarding_completed', 'true'); setShowOnboarding(false); }} />;
+    return <Onboarding onDone={handleOnboardingDone} onPricing={openPricing} />;
   }
 
-  if (currentPage === 'pricing') {
-    return <Pricing onBack={() => { setCurrentPage('chat'); refreshCredits(); refreshConversationSession(); }} accessToken={accessToken} />;
+  if (!hasAgreedDisclaimer) {
+    return (
+      <main className="disclaimer-screen">
+        <section className="disclaimer-card">
+          <div className="disclaimer-title">進入懂妳之前</div>
+          <p className="disclaimer-copy">
+            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若妳目前處於嚴重心理危機、自傷或傷人風險，請立即聯絡當地緊急服務或專業支援。
+          </p>
+          <button onClick={handleDisclaimerAgree} className="disclaimer-button" type="button">
+            我理解，進入空間
+          </button>
+          <button onClick={openPricing} className="disclaimer-secondary" type="button">
+            先查看 Plus 方案
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (authLoading) {
+    return <div className="app-loading">Loading...</div>;
+  }
+
+  if (!user) {
+    return (
+      <main className="auth-screen">
+        <section className="auth-panel">
+          <div className="auth-eyebrow">懂妳</div>
+          <h1>進入懂妳</h1>
+          <p>使用 Google 登入後，就能開始一段安靜、私密的對話。</p>
+          <button onClick={handleGoogleLogin} className="auth-primary" type="button">
+            使用 Google 登入
+          </button>
+          <button onClick={openPricing} className="auth-secondary" type="button">
+            查看 Plus 方案
+          </button>
+        </section>
+      </main>
+    );
   }
 
   return (
     <div className="dongni-ocean-page">
       <div className="dongni-chat-frame">
         <div className="dongni-chat-nav">
-          <button onClick={() => { localStorage.removeItem('dongni_onboarding_completed'); setShowOnboarding(true); }} className="dongni-nav-button">
-            {'\u91cd\u7f6e\u6aa2\u6e2c'}
+          <button onClick={() => { localStorage.removeItem(onboardingKey); setShowOnboarding(true); }} className="dongni-nav-button" type="button">
+            重看歡迎
           </button>
-          <div className="dongni-chat-title">{'\u3010\u61c2 \u59b3\u3011'}</div>
-          <button onClick={() => { setCurrentPage('pricing'); }} className="dongni-nav-button">Plus</button>
+          <div className="dongni-chat-title">【懂 妳】</div>
+          <button onClick={openPricing} className="dongni-nav-button" type="button">Plus</button>
         </div>
 
         <div className="dongni-credit-line">
           {creditsLoading
-            ? '\u6b63\u5728\u78ba\u8a8d\u5269\u9918\u6b21\u6578...'
+            ? '正在確認剩餘次數...'
             : trialActive
-              ? `${formatTrialStatus(trialEndsAt)}\uff5c\u672a\u4f7f\u7528\u6b21\u6578 ${credits} \u6b21`
-              : `\u672a\u4f7f\u7528\u6b21\u6578 ${credits} \u6b21`}
+              ? `${formatTrialStatus(trialEndsAt)}｜未使用次數 ${credits} 次`
+              : `未使用次數 ${credits} 次`}
         </div>
 
         {notice ? (
@@ -345,7 +446,7 @@ function App() {
           }`}
         >
           {messages.map((msg, idx) => (
-            <div key={idx} className={`dongni-message-row ${msg.role === 'user' ? 'dongni-message-row-user' : 'dongni-message-row-assistant'}`}>
+            <div key={`${msg.role}-${idx}`} className={`dongni-message-row ${msg.role === 'user' ? 'dongni-message-row-user' : 'dongni-message-row-assistant'}`}>
               {msg.role === 'user' ? (
                 <div className="dongni-user-bubble animate-fade-in">
                   {msg.content}
@@ -357,7 +458,7 @@ function App() {
                 >
                   {msg.content || (isLoading && idx === messages.length - 1 ? (
                     <div className="dongni-listening">
-                      <span>{'\u61c2\u59b3\u6b63\u5728\u807d\u59b3\u8aaa...'}</span>
+                      <span>懂妳正在聽妳說...</span>
                       <div className="breathing-glow" />
                     </div>
                   ) : '')}
@@ -374,15 +475,24 @@ function App() {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder={'\u60f3\u8ddf\u6211\u8aaa\u4ec0\u9ebc\u90fd\u53ef\u4ee5...'}
+            placeholder="想跟我說什麼都可以..."
             rows={4}
           />
+          {isLocalE2E() ? (
+            <button
+              className="dongni-e2e-fill"
+              type="button"
+              onClick={() => setInput('我今天有點累，只想確認妳在。')}
+            >
+              E2E 填入訊息
+            </button>
+          ) : null}
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
             className="dongni-chat-submit"
           >
-            {isLoading ? '\u50b3\u9001\u4e2d...' : '\u9001\u51fa'}
+            {isLoading ? '傳送中...' : '送出'}
           </button>
         </form>
       </div>

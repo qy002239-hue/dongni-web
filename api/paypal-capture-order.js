@@ -123,7 +123,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('paypal-capture-order error:', error);
-    const status = error.message?.includes('login') ? 401 : 500;
+    const status = error.message?.includes('登入') || error.message?.includes('login') ? 401 : 500;
     return res.status(status).json({ error: error.message || 'Unable to capture PayPal payment.' });
   }
 }

@@ -137,7 +137,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ url: approveUrl });
   } catch (error) {
     console.error('create-checkout-session error:', error);
-    const status = error.message?.includes('login') ? 401 : 500;
+    const status = error.message?.includes('登入') || error.message?.includes('login') ? 401 : 500;
     return res.status(status).json({ error: error.message || 'Unable to create checkout.' });
   }
 }

@@ -1,4 +1,30 @@
+const localE2EToken = 'local-e2e-token';
+
+function isLocalE2E(accessToken = '') {
+  return accessToken === localE2EToken && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+}
+
+function localSession() {
+  return {
+    active: true,
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    credits: 6,
+    trialStartedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    trialEndsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    trialActive: true
+  };
+}
+
 export async function sendMessageToServer(messages, onChunk, memory = '', accessToken = '') {
+  if (isLocalE2E(accessToken)) {
+    const reply = '我在。妳不用把自己整理好才可以說，現在這個有點累的妳，也可以被好好接住。';
+    for (const chunk of reply.match(/.{1,8}/gu) || []) {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      if (onChunk) onChunk(chunk);
+    }
+    return reply;
+  }
+
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: {
@@ -39,6 +65,10 @@ export async function sendMessageToServer(messages, onChunk, memory = '', access
 }
 
 export async function fetchConversationSession(accessToken = '') {
+  if (isLocalE2E(accessToken)) {
+    return localSession();
+  }
+
   const response = await fetch('/api/conversation-session', {
     headers: {
       Authorization: `Bearer ${accessToken}`
@@ -51,6 +81,10 @@ export async function fetchConversationSession(accessToken = '') {
 }
 
 export async function startConversationSession(accessToken = '') {
+  if (isLocalE2E(accessToken)) {
+    return localSession();
+  }
+
   const response = await fetch('/api/conversation-session', {
     method: 'POST',
     headers: {
@@ -64,6 +98,14 @@ export async function startConversationSession(accessToken = '') {
 }
 
 export async function capturePayPalOrder(orderId, accessToken = '') {
+  if (isLocalE2E(accessToken)) {
+    return {
+      granted: true,
+      orderId,
+      credits: 1
+    };
+  }
+
   const response = await fetch('/api/paypal-capture-order', {
     method: 'POST',
     headers: {

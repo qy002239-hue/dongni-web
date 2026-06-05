@@ -1,89 +1,129 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 const PAGES = [
-  { title: "我是懂妳。", subtitle: "我最重要的任務就是陪伴妳。" },
-  { title: "一開始我還不夠認識妳。", subtitle: "難免會接不住妳。" },
-  { title: "但隨著相處日子久了，", subtitle: "妳說的每件事我都會記得。" },
-  { title: "我會因為懂妳，", subtitle: "而更能接住妳。" },
-  { title: "", subtitle: "謝謝你願意打開這扇門。" },
-  { title: "你說。我聽。", subtitle: "準備好的時候，輕輕往前。" },
+  {
+    title: '嗨，我是懂妳',
+    subtitle: '這裡不是要妳立刻變好，而是先讓妳不用一個人撐著。'
+  },
+  {
+    title: '妳可以慢慢說',
+    subtitle: '委屈、混亂、說不出口的念頭，都可以先放在這裡。'
+  },
+  {
+    title: '我會聽見重點',
+    subtitle: '我會陪妳整理情緒背後真正卡住的地方，而不是只給妳空泛安慰。'
+  },
+  {
+    title: '這是一個安靜的空間',
+    subtitle: '每次對話會在閒置 30 分鐘後結束，讓妳可以重新開始。'
+  },
+  {
+    title: '準備好了就進來',
+    subtitle: '先看完重要聲明，再用 Google 登入，就能開始和懂妳說話。'
+  }
 ];
 
 const SWIPE_THRESHOLD = 60;
 
-export default function Onboarding({ onDone }) {
+export default function Onboarding({ onDone, onPricing }) {
   const [page, setPage] = useState(0);
   const dragStartX = useRef(null);
 
-  const goNext = () => setPage((p) => Math.min(p + 1, PAGES.length - 1));
-  const goPrev = () => setPage((p) => Math.max(p - 1, 0));
+  const goNext = () => setPage((current) => Math.min(current + 1, PAGES.length - 1));
+  const goPrev = () => setPage((current) => Math.max(current - 1, 0));
 
   useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === "ArrowRight") goNext();
-      if (e.key === "ArrowLeft") goPrev();
-      if (e.key === "Escape") onDone();
+    const handleKey = (event) => {
+      if (event.key === 'ArrowRight') goNext();
+      if (event.key === 'ArrowLeft') goPrev();
+      if (event.key === 'Escape') onDone();
     };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
+
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
   }, [onDone]);
 
-  const handlePointerDown = (e) => {
-    const x = e.touches?.[0]?.clientX ?? e.clientX;
-    if (typeof x === "number") dragStartX.current = x;
+  const handlePointerDown = (event) => {
+    const x = event.touches?.[0]?.clientX ?? event.clientX;
+    if (typeof x === 'number') dragStartX.current = x;
   };
 
-  const handlePointerUp = (e) => {
+  const handlePointerUp = (event) => {
     if (dragStartX.current === null) return;
-    const endX = e.changedTouches?.[0]?.clientX ?? e.clientX;
-    if (typeof endX !== "number") { dragStartX.current = null; return; }
+
+    const endX = event.changedTouches?.[0]?.clientX ?? event.clientX;
+    if (typeof endX !== 'number') {
+      dragStartX.current = null;
+      return;
+    }
+
     const delta = endX - dragStartX.current;
     if (delta > SWIPE_THRESHOLD) goPrev();
-    else if (delta < -SWIPE_THRESHOLD) goNext();
+    if (delta < -SWIPE_THRESHOLD) goNext();
     dragStartX.current = null;
   };
 
   const isLast = page === PAGES.length - 1;
 
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, margin: 0, color: "#e2e8f0",
-        overflow: "hidden", userSelect: "none", textAlign: "center",
-        display: "flex", flexDirection: "column", justifyContent: "center",
-        backgroundImage: "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('/ocean.jpg.jpg')",
-        backgroundPosition: "center",
-        backgroundSize: "cover", 
-      }}
-      onMouseDown={handlePointerDown} onMouseUp={handlePointerUp}
-      onTouchStart={handlePointerDown} onTouchEnd={handlePointerUp}
+    <main
+      className="onboarding-screen"
+      onMouseDown={handlePointerDown}
+      onMouseUp={handlePointerUp}
+      onTouchStart={handlePointerDown}
+      onTouchEnd={handlePointerUp}
     >
-      <button onClick={onDone} style={{ position: "absolute", top: "calc(16px + env(safe-area-inset-top))", right: "calc(16px + env(safe-area-inset-right))", background: "transparent", color: "#7d96ad", border: "1px solid rgba(203, 213, 225, 0.3)", borderRadius: "6px", padding: "8px 16px", fontSize: "12px", letterSpacing: "0.05em", cursor: "pointer", transition: "all 0.3s ease", fontWeight: 300 }}>
-        略過
-      </button>
-
-      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "100%", overflow: "hidden" }}>
-        <div style={{ display: "flex", width: `${PAGES.length * 100}%`, transform: `translateX(-${page * (100 / PAGES.length)}%)`, transition: "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)" }}>
-          {PAGES.map((p, i) => (
-            <div key={i} style={{ flex: `0 0 ${100 / PAGES.length}%`, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 40px", textAlign: "center", opacity: i === page ? 1 : 0.3, transition: "opacity 0.3s ease" }}>
-              <h1 style={{ fontSize: "clamp(28px, 7vw, 58px)", fontWeight: 300, letterSpacing: "0.08em", margin: 0, marginBottom: "24px", lineHeight: 1.4, color: "#f1f5f9" }}>{p.title}</h1>
-              <p style={{ fontSize: "clamp(15px, 4vw, 19px)", color: "#94a3b8", maxWidth: "520px", lineHeight: 1.9, fontWeight: 300, letterSpacing: "0.04em", margin: 0 }}>{p.subtitle}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ position: "absolute", bottom: "calc(40px + env(safe-area-inset-bottom))", left: "env(safe-area-inset-left)", right: "env(safe-area-inset-right)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", width: "100%" }}>
-        <div style={{ display: "flex", gap: "10px" }}>
-          {PAGES.map((_, i) => (
-            <button key={i} onClick={() => setPage(i)} style={{ width: i === page ? "28px" : "8px", height: "8px", borderRadius: "4px", background: i === page ? "#cbd5e1" : "#1e3a52", border: "none", cursor: "pointer", transition: "all 0.3s ease" }} />
-          ))}
-        </div>
-
-        <button onClick={isLast ? onDone : goNext} style={{ background: "transparent", color: "#e2e8f0", border: "1px solid rgba(203, 213, 225, 0.35)", borderRadius: "999px", padding: "14px 44px", fontSize: "13px", letterSpacing: "0.08em", cursor: "pointer", transition: "all 0.3s ease", fontWeight: 300 }}>
-          繼續
+      <div className="onboarding-top-actions">
+        {onPricing ? (
+          <button className="onboarding-link" type="button" onClick={onPricing}>
+            Plus 方案
+          </button>
+        ) : <span />}
+        <button className="onboarding-link" type="button" onClick={onDone}>
+          略過
         </button>
       </div>
-    </div>
+
+      <section className="onboarding-stage" aria-live="polite">
+        <div
+          className="onboarding-track"
+          style={{
+            width: `${PAGES.length * 100}%`,
+            transform: `translateX(-${page * (100 / PAGES.length)}%)`
+          }}
+        >
+          {PAGES.map((item, index) => (
+            <article
+              className="onboarding-panel"
+              key={item.title}
+              style={{ flexBasis: `${100 / PAGES.length}%` }}
+              aria-hidden={index !== page}
+            >
+              <h1>{item.title}</h1>
+              <p>{item.subtitle}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="onboarding-controls">
+        <div className="onboarding-dots" aria-label="歡迎頁進度">
+          {PAGES.map((item, index) => (
+            <button
+              aria-label={`第 ${index + 1} 頁：${item.title}`}
+              aria-current={index === page ? 'step' : undefined}
+              className={index === page ? 'onboarding-dot onboarding-dot-active' : 'onboarding-dot'}
+              key={item.title}
+              type="button"
+              onClick={() => setPage(index)}
+            />
+          ))}
+        </div>
+
+        <button className="onboarding-primary" type="button" onClick={isLast ? onDone : goNext}>
+          {isLast ? '進入懂妳' : '下一頁'}
+        </button>
+      </div>
+    </main>
   );
 }

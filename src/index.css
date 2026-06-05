@@ -5,12 +5,9 @@
 }
 
 :root {
-  /* 深海主題色彩變數 */
   --ocean-dark: #0f2027;
   --ocean-mid: #203a43;
   --ocean-light: #2c5364;
-  
-  /* 排版變數 */
   --text-size-bubble: 16px;
   --text-size-ai: 18px;
   --line-height: 1.65;
@@ -21,11 +18,8 @@ body,
 #root {
   margin: 0;
   padding: 0;
-  height: 100%;
+  min-height: 100%;
   width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 body {
@@ -42,11 +36,12 @@ body {
   min-height: 100vh;
   color: #e2e8f0;
   overscroll-behavior: none;
-  overflow: hidden;
+  overflow: auto;
 }
 
 button,
-input {
+input,
+textarea {
   font-family: inherit;
   -webkit-tap-highlight-color: transparent;
 }
@@ -55,36 +50,31 @@ button {
   touch-action: manipulation;
 }
 
-/* 用戶訊息泡泡 */
 .user-message-bubble {
   font-size: var(--text-size-bubble);
   line-height: var(--line-height);
-  word-break: break-word;
-  word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
+  word-break: break-word;
 }
 
-/* AI 訊息泡泡 */
 .ai-message-bubble {
   font-size: var(--text-size-ai);
   line-height: var(--line-height);
-  word-break: break-word;
-  word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
-/* 隱藏滾動條但保持滾動功能 */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-/* AI 吐字時的「現代詩歌淡入流暢動畫」 */
 .animate-fade-in {
   animation: fadeInStyle 0.8s ease-out forwards;
 }
@@ -102,7 +92,6 @@ button {
   }
 }
 
-/* 療癒呼吸燈特效 */
 .breathing-glow {
   width: 12px;
   height: 12px;
@@ -115,7 +104,8 @@ button {
 }
 
 @keyframes breathe {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.3;
     box-shadow: 0 0 10px rgba(168, 230, 207, 0.2);

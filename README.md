@@ -143,5 +143,5 @@ Vercel 設定使用 `vercel.json`：
 - `api/paypal-capture-order.js`: PayPal 付款確認後加次數
 - `api/credits.js`: 查詢目前剩餘次數
 - `api/conversation-session.js`: 查詢或開始 30 分鐘閒置制對話 session
-- `api/stripe-webhook.js`: 舊 Stripe webhook，改用 PayPal 後不需要設定
+- Stripe webhook 已移除；目前付款流程統一使用 PayPal。
 - `supabase/schema.sql`: Supabase 資料表與原子加扣次函式

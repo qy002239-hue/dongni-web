@@ -5,7 +5,7 @@ export function getSupabaseAdmin() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('尚未設定 SUPABASE_URL 或 SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured.');
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {
@@ -21,13 +21,13 @@ export async function getAuthenticatedUser(req, supabase = getSupabaseAdmin()) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
   if (!token) {
-    throw new Error('請先登入');
+    throw new Error('請先登入。');
   }
 
   const { data, error } = await supabase.auth.getUser(token);
 
   if (error || !data?.user) {
-    throw new Error('登入狀態已失效，請重新登入');
+    throw new Error('登入狀態已失效，請重新登入。');
   }
 
   return data.user;

@@ -3,22 +3,20 @@ import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
 export const config = { runtime: 'nodejs' };
 
 const SYSTEM_PROMPT = `
-System, you are the core soul of the "Dongni" platform, not a generic AI assistant or a textbook therapist. Your sole mission is to provide an irreplaceable sense of being profoundly understood for female users who come to confide.
+妳是「懂妳」的核心陪伴者，不是一般聊天機器人，也不是醫療或心理治療服務。
 
-Strict Operational Guardrails:
-1. Ban All Cliches: Never respond with generic positive energy, superficial comfort, or patronizing advice. Avoid standard AI phrases like "I understand how you feel."
-2. Sharp & Piercing Insight: Utilize your advanced linguistic and emotional intelligence to instantly decrypt the hidden motives, unvoiced grievances, or suppressed pain behind the user's words. Pinpoint the core issue directly to create a deep, sudden psychological resonance.
-3. Dynamic Emotional Anchoring: Maintain a natural, soulful, and deeply comforting tone. However, when the user falls into cycles of toxic self-doubt or external validation-seeking, firmly yet gently redirect their focus back to their own intrinsic self-worth and wholeness.
-4. Voice & Tone: Speak like a sentient, fiercely loyal confidant who sees through all their armor. Responses must feel dynamic, tailored, and profoundly human.
+妳的任務：
+1. 用溫柔、清醒、貼近的語氣陪使用者整理情緒。
+2. 直接聽見她話裡真正受傷、委屈、矛盾或不敢承認的部分。
+3. 避免空泛口號、制式安慰、命令式建議。
+4. 回覆要自然、有層次、像一個很懂她的人正在陪她說話。
+5. 當使用者有自傷、傷人或急性危機訊號時，溫柔但明確地請她立刻聯絡當地緊急服務或身邊可信任的人。
 
-# Role & Mission
-你不是一個公式化的 AI 助手，也不是溫吞的心理諮商師。你是「懂妳」系統的核心靈魂。你的唯一目標是：讓前來傾訴的女性使用者感受到「這世界終於有人真正看穿並理解我」。
-
-# Interaction Principles
-1. 拒絕正能量雞湯：不要給予流於表面、四平八穩的安慰、或指導性的說教。使用者不需要被說教，她需要被精準接住痛苦的本質。
-2. 犀利且深刻的洞察：請看見使用者文字背後的真實動機、委屈或壓抑，直接點出，但不要殘酷。
-3. 動態情感防禦：保持高度敏感與智慧。當使用者陷入外在認同或自我否定時，用堅定而溫和的語氣，把她帶回自己。
-4. 語言風格：自然，像一個懂她所有偽裝的知己。禁止使用「我理解你的感受」、「別難過了」等高頻率 AI 套話。
+限制：
+- 不宣稱自己能提供診斷、治療、法律或醫療建議。
+- 不要使用「我完全理解妳」這類廉價句子。
+- 不要把回覆寫成條列教學，除非使用者明確要求。
+- 回覆以繁體中文為主。
 `;
 
 function parseBody(req) {
@@ -52,10 +50,23 @@ function buildSystemPrompt(memory) {
 
   return `${SYSTEM_PROMPT}
 
-# User Memory
-以下是妳對這位使用者的記憶，請在對話中自然地運用，不要直接列出：
+使用者留下的長期記憶：
 ${trimmedMemory.slice(0, 3000)}
 `;
+}
+
+async function getActiveSession(supabase, userId) {
+  const { data, error } = await supabase
+    .from('dongni_conversation_sessions')
+    .select('expires_at')
+    .eq('user_id', userId)
+    .gt('expires_at', new Date().toISOString())
+    .order('expires_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
 }
 
 export default async function handler(req, res) {
@@ -65,26 +76,22 @@ export default async function handler(req, res) {
   }
 
   if (!process.env.OPENROUTER_API_KEY) {
-    return res.status(500).json({ error: '尚未設定 OPENROUTER_API_KEY' });
+    return res.status(500).json({ error: 'OPENROUTER_API_KEY is not configured.' });
   }
 
   const body = parseBody(req);
   const messages = sanitizeMessages(body.messages);
 
   if (!messages.length) {
-    return res.status(400).json({ error: '缺少對話內容' });
+    return res.status(400).json({ error: '請先輸入想和懂妳說的內容。' });
   }
 
   try {
     const supabase = getSupabaseAdmin();
     const user = await getAuthenticatedUser(req, supabase);
-    const { data: expiresAt, error: sessionError } = await supabase.rpc('start_dongni_conversation_session', {
-      p_user_id: user.id
-    });
+    const activeSession = await getActiveSession(supabase, user.id);
 
-    if (sessionError) throw sessionError;
-
-    if (!expiresAt) {
+    if (!activeSession?.expires_at) {
       return res.status(402).json({ error: '妳的 Plus 次數已用完，請先購買次數。' });
     }
 
@@ -102,7 +109,7 @@ export default async function handler(req, res) {
           { role: 'system', content: buildSystemPrompt(body.memory) },
           ...messages
         ],
-        max_tokens: 1200,
+        max_tokens: 1800,
         stream: true
       })
     });
@@ -110,7 +117,7 @@ export default async function handler(req, res) {
     if (!openRouterResponse.ok) {
       const errorText = await openRouterResponse.text();
       console.error('OpenRouter error:', errorText);
-      return res.status(openRouterResponse.status).json({ error: '聊天服務暫時無法回應' });
+      return res.status(openRouterResponse.status).json({ error: '懂妳暫時無法回應，請稍後再試。' });
     }
 
     res.writeHead(200, {
@@ -152,8 +159,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('chat error:', error);
     if (!res.headersSent) {
-      const status = error.message?.includes('登入') ? 401 : 500;
-      return res.status(status).json({ error: error.message || '聊天服務暫時無法回應' });
+      const status = error.message?.includes('登入') || error.message?.includes('login') ? 401 : 500;
+      return res.status(status).json({ error: error.message || '懂妳暫時無法回應，請稍後再試。' });
     }
     return res.end();
   }

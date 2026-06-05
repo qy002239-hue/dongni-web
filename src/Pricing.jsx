@@ -6,22 +6,22 @@ const plans = [
     id: 'dongni-plus-single',
     name: 'Dongni Plus',
     amount: '200',
-    period: '/ 1 credit',
-    type: 'One conversation credit',
-    button: 'Pay NT$200 with PayPal'
+    period: '/ 1 次',
+    type: '一段 30 分鐘內可延續的對話',
+    button: '使用 PayPal 付款 NT$200'
   },
   {
     id: 'dongni-plus-six-pack',
-    name: 'Dongni Plus Six Pack',
+    name: 'Dongni Plus 六次包',
     amount: '1000',
-    period: '/ 6 credits',
-    type: 'Six credits, about NT$167 each',
-    button: 'Pay NT$1000 with PayPal',
-    highlight: 'Best value'
+    period: '/ 6 次',
+    type: '六段對話，平均每次約 NT$167',
+    button: '使用 PayPal 付款 NT$1000',
+    highlight: '較划算'
   }
 ];
 
-function Pricing({ onBack, accessToken }) {
+function Pricing({ onBack, onLogin, accessToken }) {
   const [payingPlan, setPayingPlan] = useState('');
   const [error, setError] = useState('');
 
@@ -29,7 +29,12 @@ function Pricing({ onBack, accessToken }) {
     if (payingPlan) return;
 
     if (!accessToken) {
-      setError('Please sign in with Google before starting PayPal checkout.');
+      setError('請先使用 Google 登入，再開始 PayPal 付款。');
+      return;
+    }
+
+    if (accessToken === 'local-e2e-token' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+      window.location.href = `/?e2e=1&payment=paypal-success&token=local-${planId}`;
       return;
     }
 
@@ -68,37 +73,42 @@ function Pricing({ onBack, accessToken }) {
   };
 
   return (
-    <div className="pricing-container">
+    <main className="pricing-container">
       <div className="pricing-content">
         <div className="pricing-header">
           <button onClick={onBack} className="pricing-back-btn" type="button">
-            Back
+            返回
           </button>
           <div className="pricing-title">Dongni Plus</div>
           <div style={{ width: '60px' }} />
         </div>
 
         <div className="pricing-main">
-          <div className="pricing-description">
+          <section className="pricing-description">
             <p className="pricing-text-primary">
-              Choose the amount of Dongni Plus credits you want to add.
+              選擇妳想加值的懂妳 Plus 次數。
             </p>
             <p className="pricing-text-secondary">
-              New users still get 3 free trial days. Paid credits are used after the trial ends.
+              新使用者仍享有 3 天免費體驗。付費次數會在免費期結束後使用。
             </p>
             <p className="pricing-text-secondary">
-              Each paid credit starts one conversation session. If there is no message for 30 minutes, that session ends.
+              每 1 次 Plus 可開始一段對話；若 30 分鐘沒有新訊息，該段對話會自動結束。
             </p>
+            {!accessToken ? (
+              <button className="pricing-login-btn" type="button" onClick={onLogin}>
+                使用 Google 登入後付款
+              </button>
+            ) : null}
             {error ? (
               <p className="pricing-error" role="alert">
                 {error}
               </p>
             ) : null}
-          </div>
+          </section>
 
-          <div className="pricing-plans">
+          <section className="pricing-plans" aria-label="Plus 付款方案">
             {plans.map((plan) => (
-              <div className="pricing-card" key={plan.id}>
+              <article className="pricing-card" key={plan.id}>
                 {plan.highlight ? (
                   <div className="pricing-badge">{plan.highlight}</div>
                 ) : null}
@@ -116,18 +126,18 @@ function Pricing({ onBack, accessToken }) {
                   type="button"
                   disabled={Boolean(payingPlan)}
                 >
-                  {payingPlan === plan.id ? 'Opening PayPal...' : plan.button}
+                  {payingPlan === plan.id ? '正在開啟 PayPal...' : plan.button}
                 </button>
-              </div>
+              </article>
             ))}
-          </div>
+          </section>
 
           <p className="pricing-disclaimer">
-            Payments are processed by PayPal. Credits are added after PayPal confirms the payment.
+            付款由 PayPal 處理。PayPal 確認付款後，懂妳會自動把 Plus 次數加回妳的帳號。
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

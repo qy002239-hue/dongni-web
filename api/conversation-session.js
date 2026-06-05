@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('conversation-session error:', error);
-    const status = error.message?.includes('登入') ? 401 : 500;
-    return res.status(status).json({ error: error.message || '無法確認對話時間' });
+    const status = error.message?.includes('登入') || error.message?.includes('login') ? 401 : 500;
+    return res.status(status).json({ error: error.message || '無法取得對話 session。' });
   }
 }

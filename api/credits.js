@@ -28,6 +28,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('credits error:', error);
-    return res.status(error.message?.includes('登入') ? 401 : 500).json({ error: error.message || '無法取得剩餘次數' });
+    const status = error.message?.includes('登入') || error.message?.includes('login') ? 401 : 500;
+    return res.status(status).json({ error: error.message || '無法取得 Plus 次數。' });
   }
 }
