@@ -1,4 +1,4 @@
-export default function WelcomePage({ onStart }) {
+export default function WelcomePage({ onStart, onGoogleLogin }) {
   return (
     <main className="auth-screen welcome-screen">
       <section className="auth-panel welcome-panel">
@@ -27,9 +27,14 @@ export default function WelcomePage({ onStart }) {
           </article>
         </div>
 
-        <button onClick={onStart} className="auth-primary" type="button">
-          開始體驗
-        </button>
+        <div className="welcome-actions">
+          <button onClick={onGoogleLogin} className="auth-primary" type="button">
+            使用 Google 登入
+          </button>
+          <button onClick={onStart} className="auth-secondary" type="button">
+            開始聊天
+          </button>
+        </div>
       </section>
     </main>
   );

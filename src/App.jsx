@@ -368,7 +368,7 @@ function App() {
   }
 
   if (currentPage === 'welcome') {
-    return <WelcomePage onStart={openChat} />;
+    return <WelcomePage onStart={openChat} onGoogleLogin={handleGoogleLogin} />;
   }
 
   if (showOnboarding) {
