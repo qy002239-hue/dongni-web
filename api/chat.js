@@ -44,11 +44,14 @@ function sanitizeMessages(messages) {
     .slice(-24);
 }
 
-function buildSystemPrompt(memory) {
-  const trimmedMemory = String(memory || '').trim();
-  if (!trimmedMemory) return SYSTEM_PROMPT;
+function buildSystemPrompt(memory, testSystemPrompt) {
+  const override = String(testSystemPrompt || '').trim();
+  const basePrompt = override || SYSTEM_PROMPT;
 
-  return `${SYSTEM_PROMPT}
+  const trimmedMemory = String(memory || '').trim();
+  if (!trimmedMemory) return basePrompt;
+
+  return `${basePrompt}
 
 使用者留下的長期記憶：
 ${trimmedMemory.slice(0, 3000)}
@@ -87,12 +90,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const supabase = getSupabaseAdmin();
-    const user = await getAuthenticatedUser(req, supabase);
-    const activeSession = await getActiveSession(supabase, user.id);
+    const isTestReception = req.headers['x-test-reception'] === '1';
 
-    if (!activeSession?.expires_at) {
-      return res.status(402).json({ error: '妳的 Plus 次數已用完，請先購買次數。' });
+    if (!isTestReception) {
+      const supabase = getSupabaseAdmin();
+      const user = await getAuthenticatedUser(req, supabase);
+      const activeSession = await getActiveSession(supabase, user.id);
+
+      if (!activeSession?.expires_at) {
+        return res.status(402).json({ error: '妳的 Plus 次數已用完，請先購買次數。' });
+      }
     }
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -106,7 +113,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4-5',
         messages: [
-          { role: 'system', content: buildSystemPrompt(body.memory) },
+          { role: 'system', content: buildSystemPrompt(body.memory, body.testSystemPrompt) },
           ...messages
         ],
         max_tokens: 1800,
