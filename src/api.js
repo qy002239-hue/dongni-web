@@ -64,6 +64,71 @@ export async function sendMessageToServer(messages, onChunk, memory = '', access
   return fullReply;
 }
 
+export async function sendMessageToServerForTestReception({
+  messages,
+  onChunk,
+  memory = '',
+  accessToken = '',
+  systemPrompt = '',
+  useTestPrompt = false
+}) {
+  const startedAt = performance.now();
+
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({
+      messages,
+      memory,
+      testSystemPrompt: useTestPrompt ? systemPrompt : undefined
+    })
+  });
+
+  const durationMs = Math.round(performance.now() - startedAt);
+
+  if (!response.ok) {
+    let errorMessage = 'API error';
+    let errorPayload = null;
+    try {
+      errorPayload = await response.json();
+      errorMessage = errorPayload.error || errorMessage;
+    } catch {}
+    throw new Error(errorMessage);
+  }
+
+  if (!response.body) {
+    throw new Error('No response stream was returned.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullReply = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    fullReply += chunk;
+    if (onChunk) onChunk(chunk);
+  }
+
+  return {
+    fullReply,
+    durationMs,
+    usage: null,
+    raw: {
+      streamedText: fullReply,
+      durationMs,
+      usage: null,
+      note: 'Current /api/chat endpoint streams plain text only; token usage and provider raw JSON are not returned.'
+    }
+  };
+}
+
 export async function fetchConversationSession(accessToken = '') {
   if (isLocalE2E(accessToken)) {
     return localSession();

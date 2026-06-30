@@ -374,7 +374,7 @@ function App() {
         <section className="disclaimer-card">
           <div className="disclaimer-title">進入懂妳之前</div>
           <p className="disclaimer-copy">
-            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若妳目前處於嚴重心理危機、自傷或傷人風險，請立即聯絡當地緊急服務或專業支援。
+            本平台由 AI 語意模型驅動，專注於情緒陪伴與心靈舒緩，不具備任何醫療、心理諮商或臨床診斷之法律效力。若妳目前處於嚴重心理危機，請立即聯繫 1925、1995 或 119 等專業緊急資源。
           </p>
           <button onClick={handleDisclaimerAgree} className="disclaimer-button" type="button">
             我理解，進入空間
