@@ -2,7 +2,11 @@ export default function WelcomePage({ onStart }) {
   return (
     <main className="auth-screen welcome-screen">
       <section className="auth-panel welcome-panel">
-        <div className="auth-eyebrow">懂妳</div>
+        <div className="welcome-brand" aria-label="懂妳 Logo 與名稱">
+          <div className="welcome-logo-placeholder" aria-hidden="true">Logo</div>
+          <div className="welcome-app-name">懂妳</div>
+        </div>
+        <p className="welcome-tagline">有人願意聽你說。</p>
         <h1>Welcome to 懂妳</h1>
         <p className="welcome-intro">
           先給妳一個安靜的入口，準備好之後，再慢慢走進這段對話。
