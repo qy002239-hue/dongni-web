@@ -1,15 +1,24 @@
 export default function WelcomePage({ onStart, onGoogleLogin }) {
   return (
     <main className="auth-screen welcome-screen">
+      <div className="welcome-bg-glow" aria-hidden="true" />
       <section className="auth-panel welcome-panel animate-fade-in">
         <div className="welcome-brand" aria-label="懂妳 Logo 與名稱">
           <div className="welcome-logo-mark" aria-hidden="true" />
           <div className="welcome-app-name">懂妳</div>
         </div>
+
+        <div className="welcome-presence" aria-label="懂妳目前在線">
+          <span className="welcome-presence-dot" aria-hidden="true" />
+          <span className="welcome-presence-text">懂妳在這裡</span>
+        </div>
+
         <p className="welcome-tagline">有人願意聽你說。</p>
         <p className="welcome-intro">
           先給妳一個安靜的入口，準備好之後，再慢慢走進這段對話。
         </p>
+
+        <div className="welcome-divider" aria-hidden="true" />
 
         <div className="welcome-features" aria-label="懂妳的四個特色">
           <article className="welcome-feature-card">
@@ -42,6 +51,8 @@ export default function WelcomePage({ onStart, onGoogleLogin }) {
             先看看這裡
           </button>
         </div>
+
+        <p className="welcome-footer-note">你不需要準備好任何事，只要你在。</p>
       </section>
     </main>
   );

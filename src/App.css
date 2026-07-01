@@ -512,6 +512,29 @@
   line-height: 1.8;
 }
 
+.welcome-bg-glow {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -52%);
+  width: min(900px, 140vw);
+  height: min(900px, 140vw);
+  border-radius: 50%;
+  background: radial-gradient(circle at center,
+    rgba(168, 230, 207, 0.07) 0%,
+    rgba(100, 160, 200, 0.05) 40%,
+    transparent 68%
+  );
+  pointer-events: none;
+  z-index: 0;
+  animation: welcomeGlowPulse 9s ease-in-out infinite;
+}
+
+@keyframes welcomeGlowPulse {
+  0%, 100% { opacity: 0.55; transform: translate(-50%, -52%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -52%) scale(1.1); }
+}
+
 .welcome-screen {
   padding: 40px 24px;
 }
@@ -519,6 +542,8 @@
 .welcome-panel {
   width: min(760px, 100%);
   gap: 28px;
+  position: relative;
+  z-index: 1;
 }
 
 .welcome-brand {
@@ -529,37 +554,68 @@
 }
 
 .welcome-logo-mark {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(168, 230, 207, 0.55) 0%, rgba(168, 230, 207, 0.08) 65%, transparent 100%);
-  border: 1px solid rgba(168, 230, 207, 0.38);
-  box-shadow: 0 0 32px rgba(168, 230, 207, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: radial-gradient(circle at 35% 35%, rgba(168, 230, 207, 0.62) 0%, rgba(168, 230, 207, 0.1) 60%, transparent 100%);
+  border: 1px solid rgba(168, 230, 207, 0.45);
+  box-shadow: 0 0 48px rgba(168, 230, 207, 0.22), 0 0 96px rgba(168, 230, 207, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   animation: breathe 4s ease-in-out infinite;
 }
 
 .welcome-app-name {
   color: #f8fafc;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 400;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
+  text-shadow: 0 0 30px rgba(168, 230, 207, 0.2);
+}
+
+.welcome-presence {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -6px;
+}
+
+.welcome-presence-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a8e6cf;
+  box-shadow: 0 0 8px rgba(168, 230, 207, 0.75);
+  animation: breathe 3s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.welcome-presence-text {
+  color: #b5d5cc;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  opacity: 0.8;
 }
 
 .welcome-tagline {
   margin: 0;
   color: #dbeafe;
-  font-size: 18px;
-  letter-spacing: 0.06em;
-  opacity: 0.88;
+  font-size: 19px;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
 }
 
 .welcome-intro {
   max-width: 520px;
   text-align: center;
   font-size: 15px;
-  line-height: 1.9;
-  color: #c7d7e4;
-  letter-spacing: 0.03em;
+  line-height: 2;
+  color: #b8ccdc;
+  letter-spacing: 0.04em;
+}
+
+.welcome-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(168, 230, 207, 0.2), transparent);
 }
 
 .welcome-actions {
@@ -579,43 +635,61 @@
 
 .welcome-feature-card {
   padding: 24px 20px;
-  border: 1px solid rgba(203, 213, 225, 0.18);
+  border: 1px solid rgba(168, 230, 207, 0.14);
   border-radius: 20px;
-  background: rgba(15, 23, 42, 0.32);
-  backdrop-filter: blur(10px);
+  background: rgba(10, 20, 35, 0.38);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   text-align: left;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: border-color 0.25s ease, background 0.25s ease, transform 0.22s ease;
+  transition: border-color 0.28s ease, background 0.28s ease, transform 0.24s ease, box-shadow 0.28s ease;
 }
 
 .welcome-feature-card:hover {
-  border-color: rgba(168, 230, 207, 0.36);
-  background: rgba(15, 23, 42, 0.5);
-  transform: translateY(-3px);
+  border-color: rgba(168, 230, 207, 0.38);
+  background: rgba(10, 20, 35, 0.55);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(168, 230, 207, 0.12);
 }
 
+.welcome-feature-card:nth-child(1) { animation: fadeInStyle 0.5s ease-out 0.25s both; }
+.welcome-feature-card:nth-child(2) { animation: fadeInStyle 0.5s ease-out 0.38s both; }
+.welcome-feature-card:nth-child(3) { animation: fadeInStyle 0.5s ease-out 0.51s both; }
+.welcome-feature-card:nth-child(4) { animation: fadeInStyle 0.5s ease-out 0.64s both; }
+
 .welcome-feature-icon {
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
   display: block;
 }
 
 .welcome-feature-card h2 {
   margin: 0;
-  color: #f0f4f8;
+  color: #e8f4f0;
   font-size: 16px;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 
 .welcome-feature-card p {
   margin: 0;
-  color: #b0c4d4;
+  color: #9ab8cc;
   font-size: 14px;
-  line-height: 1.85;
-  letter-spacing: 0.02em;
+  line-height: 1.9;
+  letter-spacing: 0.03em;
+}
+
+.welcome-footer-note {
+  margin: 0;
+  color: #7a9aaa;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  opacity: 0.75;
+  font-style: italic;
+  padding-top: 4px;
 }
 
 .auth-primary,
@@ -862,21 +936,30 @@
 
   .welcome-screen {
     align-items: flex-start;
-    padding: 36px 20px 48px;
+    padding: 36px max(20px, env(safe-area-inset-left, 20px)) max(48px, env(safe-area-inset-bottom, 48px)) max(20px, env(safe-area-inset-right, 20px));
   }
 
   .welcome-panel {
-    gap: 22px;
+    gap: 20px;
     width: 100%;
   }
 
   .welcome-logo-mark {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
   }
 
   .welcome-app-name {
     font-size: 28px;
+  }
+
+  .welcome-tagline {
+    font-size: 17px;
+  }
+
+  .welcome-intro {
+    font-size: 14px;
+    line-height: 1.95;
   }
 
   .welcome-feature-card {
@@ -885,14 +968,15 @@
 
   .welcome-feature-card:hover {
     transform: none;
+    box-shadow: none;
   }
 
-  .welcome-tagline {
-    font-size: 16px;
+  .welcome-feature-icon {
+    font-size: 22px;
   }
 
-  .welcome-intro {
-    font-size: 14px;
+  .welcome-footer-note {
+    font-size: 12px;
   }
 }
 
