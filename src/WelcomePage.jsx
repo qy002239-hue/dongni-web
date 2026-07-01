@@ -11,18 +11,26 @@ export default function WelcomePage({ onStart, onGoogleLogin }) {
           先給妳一個安靜的入口，準備好之後，再慢慢走進這段對話。
         </p>
 
-        <div className="welcome-highlights" aria-label="Welcome Page highlights">
-          <article className="welcome-highlight-card">
-            <h2>安心開始</h2>
-            <p>用最少干擾的畫面，先認識懂妳的陪伴方式。</p>
+        <div className="welcome-features" aria-label="懂妳的四個特色">
+          <article className="welcome-feature-card">
+            <span className="welcome-feature-icon" aria-hidden="true">🌿</span>
+            <h2>陪伴</h2>
+            <p>不用急著振作，也不用急著找到答案。</p>
           </article>
-          <article className="welcome-highlight-card">
-            <h2>慢慢說也可以</h2>
-            <p>不需要一次整理好情緒，準備好了再進入對話。</p>
+          <article className="welcome-feature-card">
+            <span className="welcome-feature-icon" aria-hidden="true">🌊</span>
+            <h2>傾聽</h2>
+            <p>你可以慢慢說，我會一直在。</p>
           </article>
-          <article className="welcome-highlight-card">
-            <h2>你不用一個人</h2>
-            <p>這裡有人陪妳整理心情，隨時都可以開口。</p>
+          <article className="welcome-feature-card">
+            <span className="welcome-feature-icon" aria-hidden="true">🤍</span>
+            <h2>接住</h2>
+            <p>不評價，不說教，不否定。</p>
+          </article>
+          <article className="welcome-feature-card">
+            <span className="welcome-feature-icon" aria-hidden="true">🔒</span>
+            <h2>安全</h2>
+            <p>你的對話，只屬於你。</p>
           </article>
         </div>
 
