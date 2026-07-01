@@ -5,7 +5,6 @@ const PAGES = [
   { title: "一開始我還不夠認識妳。", subtitle: "難免會接不住妳。" },
   { title: "但隨著相處日子久了，", subtitle: "妳說的每件事我都會記得。" },
   { title: "我會因為懂妳，", subtitle: "而更能接住妳。" },
-  { title: "嗨。", subtitle: "謝謝你願意打開這扇門。" },
   { title: "你說。我聽。", subtitle: "準備好的時候，輕輕往前。" },
 ];
 
