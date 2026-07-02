@@ -9,11 +9,9 @@ const PAGES = [
 ];
 
 const SWIPE_THRESHOLD = 60;
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-export default function Onboarding({ onDone }) {
+export default function Onboarding({ onDone, onGoogleLogin }) {
   const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(false);
   const dragStartX = useRef(null);
 
   const goNext = () => setPage((p) => Math.min(p + 1, PAGES.length - 1));
@@ -28,14 +26,6 @@ export default function Onboarding({ onDone }) {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [onDone]);
-
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    document.head.appendChild(script);
-    return () => document.head.removeChild(script);
-  }, []);
 
   const handlePointerDown = (e) => {
     const x = e.touches?.[0]?.clientX ?? e.clientX;
@@ -53,23 +43,8 @@ export default function Onboarding({ onDone }) {
   };
 
   const handleGoogleLogin = () => {
-    setLoading(true);
-    window.google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: "openid email profile",
-      callback: async (tokenResponse) => {
-        if (tokenResponse.error) { setLoading(false); return; }
-        const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-        });
-        const user = await res.json();
-        localStorage.setItem("dongni_user_id", `google_${user.sub}`);
-        localStorage.setItem("dongni_user_name", user.name || "");
-        localStorage.setItem("dongni_user_email", user.email || "");
-        setLoading(false);
-        onDone();
-      },
-    }).requestAccessToken();
+    if (!onGoogleLogin) return;
+    onGoogleLogin();
   };
 
   const isLast = page === PAGES.length - 1;
@@ -110,8 +85,8 @@ export default function Onboarding({ onDone }) {
 
         {isLast ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-            <button onClick={handleGoogleLogin} disabled={loading} style={{ background: "rgba(203, 213, 225, 0.12)", color: "#e2e8f0", border: "1px solid rgba(203, 213, 225, 0.35)", borderRadius: "999px", padding: "14px 44px", fontSize: "15px", letterSpacing: "0.15em", cursor: loading ? "wait" : "pointer", backdropFilter: "blur(8px)", transition: "all 0.35s ease", minWidth: "200px" }}>
-              {loading ? "登入中…" : "用 Google 登入"}
+            <button onClick={handleGoogleLogin} disabled={!onGoogleLogin} style={{ background: "rgba(203, 213, 225, 0.12)", color: "#e2e8f0", border: "1px solid rgba(203, 213, 225, 0.35)", borderRadius: "999px", padding: "14px 44px", fontSize: "15px", letterSpacing: "0.15em", cursor: onGoogleLogin ? "pointer" : "not-allowed", opacity: onGoogleLogin ? 1 : 0.6, backdropFilter: "blur(8px)", transition: "all 0.35s ease", minWidth: "200px" }}>
+              用 Google 登入
             </button>
             <button onClick={onDone} style={{ background: "transparent", color: "#64748b", border: "none", fontSize: "13px", letterSpacing: "0.1em", cursor: "pointer", padding: "8px 16px" }}>
               不登入，直接使用

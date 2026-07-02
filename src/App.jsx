@@ -372,7 +372,7 @@ function App() {
   }
 
   if (showOnboarding) {
-    return <Onboarding onDone={handleOnboardingDone} onPricing={openPricing} />;
+    return <Onboarding onDone={handleOnboardingDone} onGoogleLogin={handleGoogleLogin} />;
   }
 
   if (!hasAgreedDisclaimer) {
