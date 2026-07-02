@@ -23,7 +23,7 @@
 1. 到 Supabase SQL Editor 執行 `supabase/schema.sql`。
 2. 到 Vercel 設定下方必要環境變數。
 3. 到 PayPal Developer 建立 app，取得 Client ID 與 Secret。
-4. 把 PayPal sandbox key 填到 Vercel 的 `PAYPAL_CLIENT_ID`、`PAYPAL_CLIENT_SECRET`。
+4. 把 PayPal sandbox key 填��� Vercel 的 `PAYPAL_CLIENT_ID`、`PAYPAL_CLIENT_SECRET`。
 5. 用 PayPal sandbox 測一次 NT$200 與 NT$1000 付款，確認未使用次數分別增加 1 與 6。
 6. 新使用者登入後，確認顯示 3 天免費體驗。
 7. 開始一次對話前，確認會提醒使用者「30 分鐘內沒有輸入訊息，對話會自動結束」。
