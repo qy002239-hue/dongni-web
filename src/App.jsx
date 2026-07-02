@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { capturePayPalOrder, fetchConversationSession, sendMessageToServer, startConversationSession } from './api';
 import AdminDashboard from './AdminDashboard';
 import Onboarding from './Onboarding';
 import Pricing from './Pricing';
+import WelcomePage from './WelcomePage';
 import { supabase } from './supabase';
 import './App.css';
 
@@ -43,7 +44,9 @@ function shouldOpenPricing(error) {
 }
 
 function getInitialPage() {
-  return window.location.pathname === '/pricing' ? 'pricing' : 'chat';
+  if (window.location.pathname === '/pricing') return 'pricing';
+  if (window.location.pathname === '/welcome') return 'welcome';
+  return 'chat';
 }
 
 function App() {
@@ -364,8 +367,12 @@ function App() {
     );
   }
 
+  if (currentPage === 'welcome') {
+    return <WelcomePage onStart={openChat} onGoogleLogin={handleGoogleLogin} />;
+  }
+
   if (showOnboarding) {
-    return <Onboarding onDone={handleOnboardingDone} onPricing={openPricing} />;
+    return <Onboarding onDone={handleOnboardingDone} onGoogleLogin={handleGoogleLogin} />;
   }
 
   if (!hasAgreedDisclaimer) {
