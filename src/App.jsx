@@ -395,7 +395,6 @@ function App() {
     return (
       <main className="auth-screen">
         <section className="auth-panel">
-          <div className="auth-eyebrow">懂妳</div>
           <h1>進入懂妳</h1>
           <p>使用 Google 登入後，就能開始一段安靜、私密的對話。</p>
           <button onClick={handleGoogleLogin} className="auth-primary" type="button">
