@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './Pricing.css';
 
 const plans = [
@@ -21,7 +21,7 @@ const plans = [
   }
 ];
 
-function Pricing({ onBack, onLogin, accessToken }) {
+function Pricing({ onBack, onLogin, accessToken, canLogin = true }) {
   const [payingPlan, setPayingPlan] = useState('');
   const [error, setError] = useState('');
 
@@ -34,7 +34,7 @@ function Pricing({ onBack, onLogin, accessToken }) {
     }
 
     if (accessToken === 'local-e2e-token' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
-      window.location.href = `/?e2e=1&payment=paypal-success&token=local-${planId}`;
+      window.location.assign(`/?e2e=1&payment=paypal-success&token=local-${planId}`);
       return;
     }
 
@@ -65,7 +65,7 @@ function Pricing({ onBack, onLogin, accessToken }) {
         throw new Error(data.error || 'Unable to create PayPal checkout.');
       }
 
-      window.location.href = data.url;
+      window.location.assign(data.url);
     } catch (err) {
       setError(err.message || 'Unable to create PayPal checkout. Please try again later.');
       setPayingPlan('');
@@ -95,9 +95,21 @@ function Pricing({ onBack, onLogin, accessToken }) {
               每 1 次 Plus 可開始一段對話；若 30 分鐘沒有新訊息，該段對話會自動結束。
             </p>
             {!accessToken ? (
-              <button className="pricing-login-btn" type="button" onClick={onLogin}>
-                使用 Google 登入後付款
-              </button>
+              <>
+                <button
+                  className="pricing-login-btn"
+                  type="button"
+                  onClick={onLogin}
+                  disabled={!canLogin}
+                >
+                  {canLogin ? '使用 Google 登入後付款' : 'Google 登入尚未啟用'}
+                </button>
+                {!canLogin ? (
+                  <p className="pricing-error" role="alert">
+                    本機尚未設定 Supabase OAuth 環境變數，暫時無法登入付款。
+                  </p>
+                ) : null}
+              </>
             ) : null}
             {error ? (
               <p className="pricing-error" role="alert">

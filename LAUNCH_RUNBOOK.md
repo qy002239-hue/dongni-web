@@ -20,9 +20,9 @@
 
 - Project URL → `SUPABASE_URL` 與 `VITE_SUPABASE_URL`
 - Publishable / anon key → `VITE_SUPABASE_PUBLISHABLE_KEY`
-- service_role key → `SUPABASE_SERVICE_ROLE_KEY`
+- Secret key (`sb_secret_...`) → `SUPABASE_SECRET_KEY`
 
-`SUPABASE_SERVICE_ROLE_KEY` 只能放在 Vercel 環境變數，不可以放到前端或公開給使用者。
+`SUPABASE_SECRET_KEY` 只能放在 Vercel 環境變數，不可以放到前端或公開給使用者。
 
 ## 2. PayPal
 
@@ -77,7 +77,7 @@ PAYPAL_CLIENT_ID=your-paypal-client-id
 PAYPAL_CLIENT_SECRET=your-paypal-client-secret
 PUBLIC_SITE_URL=https://your-vercel-domain.vercel.app
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+SUPABASE_SECRET_KEY=your-supabase-secret-key
 ADMIN_PASSWORD=change-this-admin-password
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key

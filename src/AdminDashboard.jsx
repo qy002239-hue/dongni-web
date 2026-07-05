@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import './AdminDashboard.css';
 
 const storedPasswordKey = 'dongni.admin.password';
@@ -97,11 +97,6 @@ export default function AdminDashboard() {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (password) loadDashboard(password);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const metrics = data?.metrics;
   const recentUsers = useMemo(() => data?.users || [], [data]);

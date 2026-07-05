@@ -11,7 +11,7 @@
 - [ ] Vercel 已設定 `PAYPAL_CLIENT_ID`
 - [ ] Vercel 已設定 `PAYPAL_CLIENT_SECRET`
 - [ ] Vercel 已設定 `SUPABASE_URL`
-- [ ] Vercel 已設定 `SUPABASE_SERVICE_ROLE_KEY`
+- [ ] Vercel 已設定 `SUPABASE_SECRET_KEY`（或舊版 `SUPABASE_SERVICE_ROLE_KEY`）
 - [ ] Vercel 已設定 `ADMIN_PASSWORD`
 - [ ] Vercel 已設定 `VITE_SUPABASE_URL`
 - [ ] Vercel 已設定 `VITE_SUPABASE_PUBLISHABLE_KEY`

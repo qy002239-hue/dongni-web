@@ -40,7 +40,7 @@ PAYPAL_CLIENT_ID=your-paypal-client-id
 PAYPAL_CLIENT_SECRET=your-paypal-client-secret
 PUBLIC_SITE_URL=https://your-vercel-domain.vercel.app
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+SUPABASE_SECRET_KEY=your-supabase-secret-key
 ADMIN_PASSWORD=change-this-admin-password
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
@@ -48,7 +48,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 
 `OPENROUTER_MODEL` 可省略，預設會使用 `anthropic/claude-sonnet-4-5`。
 
-`SUPABASE_SERVICE_ROLE_KEY` 與 `ADMIN_PASSWORD` 只放在 Vercel 環境變數，不能放到前端或公開 repo。
+`SUPABASE_SECRET_KEY` 與 `ADMIN_PASSWORD` 只放在 Vercel 環境變數，不能放到前端或公開 repo。
 
 ## 管理後台
 
@@ -63,14 +63,16 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 
 ## 本機開發
 
-安裝前端與 Vercel API 需要的依賴：
+安裝前端與本機開發需要的依賴：
 
 ```bash
 npm install
 npm run dev
 ```
 
-前端會跑在 Vite 預設網址，聊天與付款 API 部署時由 Vercel 的 `/api/*` 處理。
+本機前端會讀取專案根目錄的 `.env.local`。請先把 `.env.local.example` 複製成 `.env.local`，然後在 `.env.local` 裡貼上你的 `OPENROUTER_API_KEY`，再補上 Supabase 的 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_PUBLISHABLE_KEY`。
+
+前端會跑在 Vite 預設網址，聊天與付款 API 部署時由 Vercel 的 `/api/*` 處理。Vite 啟動後如果你有新增或修改 `.env.local`，請重新啟動 `npm run dev`，再重新整理瀏覽器。
 
 如果要跑舊的 Express 本機後端：
 
@@ -84,10 +86,23 @@ npm run server
 同時需要設定：
 
 ```bash
+# 建議放在專案根目錄的 .env.local
 OPENROUTER_API_KEY=your-openrouter-key-here
 PORT=3001
 ALLOWED_ORIGIN=http://localhost:5173
 ```
+
+如果你不想在終端機貼環境變數，直接用編輯器開啟根目錄的 `.env.local` 貼上即可。`npm run server` 目前會先讀 `.env`，再讀 `.env.local`，所以 `.env.local` 會覆蓋同名設定。
+
+## Smoke test
+
+要快速檢查 env、Supabase、OpenRouter、路由和 build，執行：
+
+```bash
+npm run smoke
+```
+
+這個指令會列出每一項 PASS / FAIL 與原因。若缺少 env，請先補進根目錄的 `.env.local`。
 
 ## PayPal 付款方案
 
@@ -145,3 +160,4 @@ Vercel 設定使用 `vercel.json`：
 - `api/conversation-session.js`: 查詢或開始 30 分鐘閒置制對話 session
 - Stripe webhook 已移除；目前付款流程統一使用 PayPal。
 - `supabase/schema.sql`: Supabase 資料表與原子加扣次函式
+Copilot Agent additional usage test
