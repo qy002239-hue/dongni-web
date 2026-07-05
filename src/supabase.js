@@ -3,15 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
-if (!supabaseUrl) {
-  throw new Error('Missing VITE_SUPABASE_URL')
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Missing frontend env: VITE_SUPABASE_URL and/or VITE_SUPABASE_PUBLISHABLE_KEY. Google login is disabled until both are set in .env.local.')
 }
 
-if (!supabaseAnonKey) {
-  throw new Error('Missing VITE_SUPABASE_PUBLISHABLE_KEY')
-}
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 
-export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey
-)
+// Keep local development usable even when OAuth env vars are not provided.
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null
