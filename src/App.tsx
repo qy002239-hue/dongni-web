@@ -47,6 +47,8 @@ function App() {
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLFormElement | null>(null);
   const activeStreamRef = useRef(false);
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const lastSubmittedRef = useRef<{ content: string; at: number }>({ content: '', at: 0 });
   const [composerHeight, setComposerHeight] = useState(176);
 
   const googleLoginEnabled = isSupabaseConfigured && Boolean(supabase);
@@ -73,6 +75,8 @@ function App() {
   }, [navigate, showToast]);
 
   const logout = useCallback(async () => {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
     activeStreamRef.current = false;
     setIsSubmitting(false);
     setInput('');
@@ -96,6 +100,30 @@ function App() {
     setMessages(DEFAULT_MESSAGES);
     navigate(withE2E(ROUTES.chat), { replace: true });
   }, [clearToast, isMockSession, navigate]);
+
+  useEffect(() => {
+    const abortStreaming = () => {
+      streamAbortRef.current?.abort();
+      streamAbortRef.current = null;
+    };
+
+    window.addEventListener('beforeunload', abortStreaming);
+    return () => {
+      window.removeEventListener('beforeunload', abortStreaming);
+      abortStreaming();
+    };
+  }, []);
+
+  useEffect(() => {
+    const onOffline = () => {
+      showToast('目前無法連線，請稍後再試');
+    };
+
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [showToast]);
 
   useEffect(() => {
     if (location.pathname === ROUTES.authCallback || location.pathname === ROUTES.testLogin) {
@@ -305,14 +333,40 @@ function App() {
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
-    if (!input.trim() || isSubmitting || activeStreamRef.current) return;
+
+    const rawInput = input;
+    const trimmedInput = rawInput.trim();
+    const normalizedInput = trimmedInput.replace(/\s+/g, ' ');
+
+    if (!trimmedInput || isSubmitting || activeStreamRef.current) return;
+
+    if (!navigator.onLine) {
+      showToast('目前無法連線，請稍後再試');
+      return;
+    }
+
+    const now = Date.now();
+    const justSubmittedSame =
+      normalizedInput === lastSubmittedRef.current.content
+      && now - lastSubmittedRef.current.at < 10_000;
+
+    if (justSubmittedSame) {
+      showToast('請勿重複送出相同訊息。');
+      return;
+    }
+
+    const abortController = new AbortController();
+    streamAbortRef.current = abortController;
 
     activeStreamRef.current = true;
     setIsSubmitting(true);
 
-    const userMessage: ChatMessage = { role: 'user', content: input };
+    const userMessage: ChatMessage = { role: 'user', content: trimmedInput };
     const nextMessages = [...messages, userMessage];
     const aiIndex = nextMessages.length;
+    const previousInput = rawInput;
+
+    lastSubmittedRef.current = { content: normalizedInput, at: now };
 
     setMessages([...nextMessages, { role: 'assistant', content: '' }]);
     setInput('');
@@ -324,16 +378,41 @@ function App() {
             ? { ...message, content: `${message.content || ''}${chunk}` }
             : message
         )));
-      }, accessToken);
+      }, {
+        accessToken,
+        signal: abortController.signal,
+        timeoutMs: 30_000
+      });
     } catch (error) {
-      const message = toErrorMessage(error, '回覆失敗，請稍後再試。');
-      showToast(message);
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
+
+      lastSubmittedRef.current = { content: '', at: 0 };
+
+      let friendly = toErrorMessage(error, '回覆失敗，請稍後再試。');
+      if (!navigator.onLine) {
+        friendly = '目前無法連線，請稍後再試';
+      } else if (friendly.includes('30 秒內沒有收到回覆')) {
+        friendly = '30 秒內沒有收到回覆，請重新送出。';
+      } else if (friendly.includes('Failed to fetch') || friendly.includes('NetworkError')) {
+        friendly = '目前無法連線，請稍後再試';
+      } else {
+        friendly = '目前伺服器暫時忙碌，請稍後再試。';
+      }
+
+      showToast(friendly);
+      setInput(previousInput);
       setMessages((prev) => prev.map((entry, index) => (
         index === aiIndex
-          ? { ...entry, content: message }
+          ? { ...entry, content: friendly }
           : entry
       )));
     } finally {
+      if (streamAbortRef.current === abortController) {
+        streamAbortRef.current = null;
+      }
+
       activeStreamRef.current = false;
       setIsSubmitting(false);
       scrollToBottom('smooth');
@@ -343,6 +422,7 @@ function App() {
   const onInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
+      if (isSubmitting || activeStreamRef.current) return;
       void submit();
     }
   };
