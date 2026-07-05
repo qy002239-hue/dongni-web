@@ -1,20 +1,8 @@
 import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
 import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
+import { getPromptContentByType } from './_prompt-manager.js';
 
 export const config = { runtime: 'nodejs' };
-
-const TITLE_SYSTEM_PROMPT = `
-請根據以下對話內容，產生一個繁體中文標題。
-
-規則：
-- 長度 8 到 20 個中文字
-- 不要加引號
-- 不要加句號
-- 不要加編號
-- 不要出現「聊天」或「對話」
-- 必須可概括主題
-- 只輸出標題文字，不要任何額外說明
-`;
 
 function sanitizeMessages(messages) {
   if (!Array.isArray(messages)) return [];
@@ -74,6 +62,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { content: titlePrompt } = await getPromptContentByType('conversation-title', {
+      preferredId: process.env.OPENROUTER_TITLE_PROMPT_ID
+    });
+
     const supabase = getSupabaseAdmin();
     const user = await getAuthenticatedUser(req, supabase);
     const activeSession = await getActiveSession(supabase, user.id);
@@ -93,7 +85,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4-5',
         messages: [
-          { role: 'system', content: TITLE_SYSTEM_PROMPT },
+          { role: 'system', content: titlePrompt },
           ...messages
         ],
         max_tokens: 80,

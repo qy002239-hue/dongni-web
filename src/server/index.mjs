@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { getPromptContentByType } from '../../api/_prompt-manager.js';
 
 const app = express();
 
@@ -50,6 +51,11 @@ app.post('/api/chat', async (req, res) => {
 
     let formattedMessages = messages ? messages.map(msg => ({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.content })) : [{ role: 'user', content: message }];
 
+    const [{ content: systemPrompt }, { content: chatPrompt }] = await Promise.all([
+      getPromptContentByType('system', { preferredId: process.env.OPENROUTER_SYSTEM_PROMPT_ID }),
+      getPromptContentByType('chat', { preferredId: process.env.OPENROUTER_CHAT_PROMPT_ID })
+    ]);
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -60,7 +66,10 @@ app.post('/api/chat', async (req, res) => {
       },
       body: JSON.stringify({
         "model": process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4-5",
-        "messages": formattedMessages,
+        "messages": [
+          { role: 'system', content: [systemPrompt, chatPrompt].filter(Boolean).join('\n\n').trim() },
+          ...formattedMessages
+        ],
         "stream": true
       })
     });
@@ -128,6 +137,10 @@ app.post('/api/chat-title', async (req, res) => {
       return res.status(400).json({ error: '沒有足夠內容可產生標題。' });
     }
 
+    const { content: titlePrompt } = await getPromptContentByType('conversation-title', {
+      preferredId: process.env.OPENROUTER_TITLE_PROMPT_ID
+    });
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -139,10 +152,7 @@ app.post('/api/chat-title', async (req, res) => {
       body: JSON.stringify({
         model: process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4-5',
         messages: [
-          {
-            role: 'system',
-            content: '請根據以下內容產生繁體中文標題，限制 8-20 字，不能有引號、句號、編號，不要出現聊天或對話，只輸出標題。'
-          },
+          { role: 'system', content: titlePrompt },
           ...messages
         ],
         max_tokens: 80,

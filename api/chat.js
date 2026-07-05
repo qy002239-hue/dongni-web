@@ -1,35 +1,8 @@
 import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
+import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
+import { getPromptContentByType } from './_prompt-manager.js';
 
 export const config = { runtime: 'nodejs' };
-
-const SYSTEM_PROMPT = `
-妳是「懂妳」的核心陪伴者，不是一般聊天機器人，也不是醫療或心理治療服務。
-
-妳的任務：
-1. 用溫柔、清醒、貼近的語氣陪使用者整理情緒。
-2. 直接聽見她話裡真正受傷、委屈、矛盾或不敢承認的部分。
-3. 避免空泛口號、制式安慰、命令式建議。
-4. 回覆要自然、有層次、像一個很懂她的人正在陪她說話。
-5. 當使用者有自傷、傷人或急性危機訊號時，溫柔但明確地請她立刻聯絡當地緊急服務或身邊可信任的人。
-
-限制：
-- 不宣稱自己能提供診斷、治療、法律或醫療建議。
-- 不要使用「我完全理解妳」這類廉價句子。
-- 不要把回覆寫成條列教學，除非使用者明確要求。
-- 回覆以繁體中文為主。
-`;
-
-function parseBody(req) {
-  if (!req.body) return {};
-  if (typeof req.body === 'string') {
-    try {
-      return JSON.parse(req.body);
-    } catch {
-      return {};
-    }
-  }
-  return req.body;
-}
 
 function sanitizeMessages(messages) {
   if (!Array.isArray(messages)) return [];
@@ -44,11 +17,17 @@ function sanitizeMessages(messages) {
     .slice(-24);
 }
 
-function buildSystemPrompt(memory) {
-  const trimmedMemory = String(memory || '').trim();
-  if (!trimmedMemory) return SYSTEM_PROMPT;
+async function buildSystemPrompt(memory) {
+  const [{ content: systemPrompt }, { content: chatPrompt }] = await Promise.all([
+    getPromptContentByType('system', { preferredId: process.env.OPENROUTER_SYSTEM_PROMPT_ID }),
+    getPromptContentByType('chat', { preferredId: process.env.OPENROUTER_CHAT_PROMPT_ID })
+  ]);
 
-  return `${SYSTEM_PROMPT}
+  const basePrompt = [systemPrompt, chatPrompt].filter(Boolean).join('\n\n').trim();
+  const trimmedMemory = String(memory || '').trim();
+  if (!trimmedMemory) return basePrompt;
+
+  return `${basePrompt}
 
 使用者留下的長期記憶：
 ${trimmedMemory.slice(0, 3000)}
@@ -71,19 +50,19 @@ async function getActiveSession(supabase, userId) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Method not allowed' });
+    return methodNotAllowed(res, 'POST');
   }
 
   if (!process.env.OPENROUTER_API_KEY) {
-    return res.status(500).json({ error: 'OPENROUTER_API_KEY is not configured.' });
+    console.error('Missing backend env: OPENROUTER_API_KEY.');
+    return jsonError(res, 500, 'OPENROUTER_API_KEY is not configured.');
   }
 
-  const body = parseBody(req);
+  const body = parseJsonBody(req);
   const messages = sanitizeMessages(body.messages);
 
   if (!messages.length) {
-    return res.status(400).json({ error: '請先輸入想和懂妳說的內容。' });
+    return jsonError(res, 400, '請先輸入想和懂妳說的內容。');
   }
 
   try {
@@ -106,7 +85,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4-5',
         messages: [
-          { role: 'system', content: buildSystemPrompt(body.memory) },
+          { role: 'system', content: await buildSystemPrompt(body.memory) },
           ...messages
         ],
         max_tokens: 1800,
@@ -117,7 +96,7 @@ export default async function handler(req, res) {
     if (!openRouterResponse.ok) {
       const errorText = await openRouterResponse.text();
       console.error('OpenRouter error:', errorText);
-      return res.status(openRouterResponse.status).json({ error: '懂妳暫時無法回應，請稍後再試。' });
+      return jsonError(res, openRouterResponse.status, '懂妳暫時無法回應，請稍後再試。');
     }
 
     res.writeHead(200, {
@@ -160,7 +139,7 @@ export default async function handler(req, res) {
     console.error('chat error:', error);
     if (!res.headersSent) {
       const status = error.message?.includes('登入') || error.message?.includes('login') ? 401 : 500;
-      return res.status(status).json({ error: error.message || '懂妳暫時無法回應，請稍後再試。' });
+      return jsonError(res, status, error.message || '懂妳暫時無法回應，請稍後再試。');
     }
     return res.end();
   }
