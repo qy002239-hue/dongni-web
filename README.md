@@ -161,3 +161,50 @@ Vercel 設定使用 `vercel.json`：
 - Stripe webhook 已移除；目前付款流程統一使用 PayPal。
 - `supabase/schema.sql`: Supabase 資料表與原子加扣次函式
 Copilot Agent additional usage test
+
+## Environment Variable Validation
+
+The app now validates required environment variables to avoid broken login or chat flows.
+
+### Validation behavior
+
+- Development:
+	- API and local server return clear missing-variable messages.
+	- Frontend shows a readable login notice instead of failing silently.
+- Production:
+	- API only returns a generic configuration error.
+	- Detailed missing-variable names are logged server-side only.
+
+### Required server variables
+
+- `OPENROUTER_API_KEY`
+- `GOOGLE_OAUTH_CLIENT_ID` (or `GOOGLE_CLIENT_ID`)
+- `GOOGLE_OAUTH_CLIENT_SECRET` (or `GOOGLE_CLIENT_SECRET`)
+- `GOOGLE_OAUTH_REDIRECT_URL` (or `GOOGLE_REDIRECT_URL`)
+- `APP_URL` (or `PUBLIC_SITE_URL`)
+
+### Required frontend variables
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+### Vercel environment variables checklist
+
+Set these in Vercel Project Settings -> Environment Variables:
+
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL` (recommended)
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `GOOGLE_OAUTH_REDIRECT_URL`
+- `APP_URL`
+- `PUBLIC_SITE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`)
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `ADMIN_PASSWORD`
+
+### Local file safety
+
+- `.env.local` is ignored by git and will not be committed.

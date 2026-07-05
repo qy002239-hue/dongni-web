@@ -1,5 +1,6 @@
 import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
 import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
+import { getPublicEnvError, logEnvValidation, validateServerEnv } from './_env.js';
 import { getPromptContentByType } from './_prompt-manager.js';
 
 export const config = { runtime: 'nodejs' };
@@ -50,8 +51,11 @@ export default async function handler(req, res) {
     return methodNotAllowed(res, 'POST');
   }
 
-  if (!process.env.OPENROUTER_API_KEY) {
-    return jsonError(res, 500, 'OPENROUTER_API_KEY is not configured.');
+  const envValidation = validateServerEnv();
+  if (!envValidation.ok) {
+    logEnvValidation(envValidation, '[chat-title]');
+    const envError = getPublicEnvError(envValidation);
+    return jsonError(res, envError.status, envError.message);
   }
 
   const body = parseJsonBody(req);

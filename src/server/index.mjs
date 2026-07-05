@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { getPublicEnvError, logEnvValidation, validateServerEnv } from '../../api/_env.js';
 import { getPromptContentByType } from '../../api/_prompt-manager.js';
 
 const app = express();
@@ -11,6 +12,11 @@ const allowedOrigins = process.env.ALLOWED_ORIGIN
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
+
+const startupEnvValidation = validateServerEnv();
+if (!startupEnvValidation.ok) {
+  logEnvValidation(startupEnvValidation, '[server-startup]');
+}
 
 function normalizeTitle(rawTitle) {
   const cleaned = String(rawTitle || '')
@@ -37,6 +43,13 @@ function sanitizeTitleMessages(messages) {
 }
 
 app.post('/api/chat', async (req, res) => {
+  const envValidation = validateServerEnv();
+  if (!envValidation.ok) {
+    logEnvValidation(envValidation, '[server-chat]');
+    const envError = getPublicEnvError(envValidation);
+    return res.status(envError.status).json({ error: envError.message });
+  }
+
   const { message, messages } = req.body;
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -126,6 +139,13 @@ app.post('/api/chat', async (req, res) => {
 });
 
 app.post('/api/chat-title', async (req, res) => {
+  const envValidation = validateServerEnv();
+  if (!envValidation.ok) {
+    logEnvValidation(envValidation, '[server-chat-title]');
+    const envError = getPublicEnvError(envValidation);
+    return res.status(envError.status).json({ error: envError.message });
+  }
+
   try {
     const openrouterApiKey = process.env.OPENROUTER_API_KEY;
     if (!openrouterApiKey) {
@@ -178,7 +198,23 @@ app.post('/api/chat-title', async (req, res) => {
 
 // 健康檢查端點
 app.get('/healthz', (req, res) => {
-  res.json({ ok: true });
+  const envValidation = validateServerEnv();
+  if (envValidation.ok) {
+    return res.json({ ok: true });
+  }
+
+  if (envValidation.isProduction) {
+    return res.status(503).json({ ok: false, error: 'Service configuration error.' });
+  }
+
+  return res.status(503).json({
+    ok: false,
+    error: 'Missing required environment variables.',
+    missing: envValidation.missing.map((group) => ({
+      label: group.label,
+      keys: group.keys
+    }))
+  });
 });
 
 const PORT = process.env.PORT || 3001;

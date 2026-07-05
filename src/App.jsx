@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { sendMessageToServer } from './api';
+import { validateClientEnv } from './lib/env';
 import { isSupabaseConfigured, supabase } from './supabase';
 import './App.css';
 
@@ -100,6 +101,7 @@ function withE2E(path) {
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const clientEnvValidation = validateClientEnv();
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState('');
   const [authLoading, setAuthLoading] = useState(true);
@@ -108,7 +110,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const activeStreamRef = useRef(false);
   const [notice, setNotice] = useState('');
-  const googleLoginEnabled = isSupabaseConfigured && Boolean(supabase);
+  const googleLoginEnabled = isSupabaseConfigured && Boolean(supabase) && clientEnvValidation.ok;
 
   const chatEndRef = useRef(null);
   const latestAssistantRef = useRef(null);
@@ -182,7 +184,7 @@ function App() {
       }
 
       setAuthLoading(false);
-      setNotice('尚未設定 Supabase OAuth 環境變數，Google 登入暫時無法使用。');
+      setNotice(clientEnvValidation.message || '尚未設定 Supabase OAuth 環境變數，Google 登入暫時無法使用。');
       return undefined;
     }
 
@@ -217,7 +219,7 @@ function App() {
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, [activateLocalTestLogin, location.pathname]);
+  }, [activateLocalTestLogin, clientEnvValidation.message, location.pathname]);
 
   useEffect(() => {
     if (location.pathname !== '/auth/callback' || authLoading) return;
@@ -287,8 +289,8 @@ function App() {
   }, [messages, isLoading]);
 
   const handleGoogleLogin = async () => {
-    if (!isSupabaseConfigured || !supabase) {
-      setNotice('Google 登入尚未啟用：請先設定 VITE_SUPABASE_URL 與 VITE_SUPABASE_PUBLISHABLE_KEY。');
+    if (!googleLoginEnabled) {
+      setNotice(clientEnvValidation.message || 'Google 登入尚未啟用：請先設定 VITE_SUPABASE_URL 與 VITE_SUPABASE_PUBLISHABLE_KEY。');
       return;
     }
 
