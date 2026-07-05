@@ -1,5 +1,18 @@
 const localE2EToken = 'local-e2e-token';
 
+function resolveChatApiUrl(path) {
+  const configuredBase = String(import.meta.env.VITE_CHAT_API_BASE_URL || '').trim();
+  if (configuredBase) {
+    return `${configuredBase.replace(/\/$/, '')}${path}`;
+  }
+
+  if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+    return `http://127.0.0.1:3001${path}`;
+  }
+
+  return path;
+}
+
 function isLocalE2E(accessToken = '') {
   return accessToken === localE2EToken && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 }
@@ -17,7 +30,7 @@ function localSession() {
 
 export async function sendMessageToServer(messages, onChunk, memory = '', accessToken = '') {
   if (isLocalE2E(accessToken)) {
-    const reply = '我在。妳不用把自己整理好才可以說，現在這個有點累的妳，也可以被好好接住。';
+    const reply = '嗯……我有聽見。妳不用急著把它說清楚。';
     for (const chunk of reply.match(/.{1,8}/gu) || []) {
       await new Promise((resolve) => setTimeout(resolve, 80));
       if (onChunk) onChunk(chunk);
@@ -25,7 +38,7 @@ export async function sendMessageToServer(messages, onChunk, memory = '', access
     return reply;
   }
 
-  const response = await fetch('/api/chat', {
+  const response = await fetch(resolveChatApiUrl('/api/chat'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -39,7 +52,9 @@ export async function sendMessageToServer(messages, onChunk, memory = '', access
     try {
       const data = await response.json();
       errorMessage = data.error || errorMessage;
-    } catch {}
+    } catch {
+      errorMessage = 'API error';
+    }
     throw new Error(errorMessage);
   }
 
@@ -49,16 +64,51 @@ export async function sendMessageToServer(messages, onChunk, memory = '', access
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  const isSse = contentType.includes('text/event-stream');
   let fullReply = '';
+
+  if (!isSse) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      fullReply += chunk;
+
+      if (onChunk) onChunk(chunk);
+    }
+
+    return fullReply;
+  }
+
+  let buffer = '';
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
-    const chunk = decoder.decode(value, { stream: true });
-    fullReply += chunk;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
 
-    if (onChunk) onChunk(chunk);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) continue;
+
+      const payload = trimmed.slice(6).trim();
+      if (payload === '[DONE]') continue;
+
+      try {
+        const parsed = JSON.parse(payload);
+        const text = String(parsed?.text || '');
+        if (!text) continue;
+        fullReply += text;
+        if (onChunk) onChunk(text);
+      } catch {
+        // Ignore malformed SSE chunks from provider edge cases.
+      }
+    }
   }
 
   return fullReply;
