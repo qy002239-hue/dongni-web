@@ -2,11 +2,16 @@ import type { ChatMessage } from '../types/chat';
 
 const historyPrefix = 'dongni_chat_history_';
 
+type TitleStatus = 'pending' | 'generated' | 'fallback';
+
 interface ConversationRecord {
   id: string;
   createdAt: number;
   updatedAt: number;
   messages: ChatMessage[];
+  aiTitle: string;
+  titleStatus: TitleStatus;
+  titleAttempts: number;
 }
 
 interface UserConversationStore {
@@ -21,6 +26,9 @@ export interface ConversationSummary {
   messageCount: number;
   isActive: boolean;
   title: string;
+  titleStatus: TitleStatus;
+  titleAttempts: number;
+  canGenerateTitle: boolean;
 }
 
 export interface ConversationState {
@@ -37,20 +45,66 @@ function createConversationId(): string {
   return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export function sanitizeMessages(input: unknown): ChatMessage[] {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .filter((item) => typeof item === 'object' && item !== null)
+    .map((item) => item as { role?: unknown; content?: unknown })
+    .filter((item) => item.role === 'user' || item.role === 'assistant')
+    .map((item) => ({
+      role: item.role as ChatMessage['role'],
+      content: String(item.content || '')
+    }))
+    .filter((item) => item.content.trim());
+}
+
+function hasEnoughMessagesForTitle(messages: ChatMessage[]): boolean {
+  let userCount = 0;
+  let assistantCount = 0;
+  for (const message of messages) {
+    if (message.role === 'user' && message.content.trim()) userCount += 1;
+    if (message.role === 'assistant' && message.content.trim()) assistantCount += 1;
+  }
+  return userCount >= 1 && assistantCount >= 1;
+}
+
+function normalizeTitleStatus(input: unknown): TitleStatus {
+  return input === 'generated' || input === 'fallback' ? input : 'pending';
+}
+
+function normalizeTitle(input: unknown): string {
+  return String(input || '').trim();
+}
+
+function defaultTitle(): string {
+  return '新的對話';
+}
+
+function displayTitle(conversation: ConversationRecord): string {
+  if (conversation.titleStatus === 'generated' && conversation.aiTitle.trim()) {
+    return conversation.aiTitle.trim();
+  }
+  return defaultTitle();
+}
+
+function canGenerateTitle(conversation: ConversationRecord): boolean {
+  if (!hasEnoughMessagesForTitle(conversation.messages)) return false;
+  if (conversation.titleStatus === 'generated') return false;
+  return conversation.titleAttempts < 2;
+}
+
 function createConversation(seedMessages: ChatMessage[]): ConversationRecord {
   const now = Date.now();
   return {
     id: createConversationId(),
     createdAt: now,
     updatedAt: now,
-    messages: sanitizeMessages(seedMessages)
+    messages: sanitizeMessages(seedMessages),
+    aiTitle: '',
+    titleStatus: 'pending',
+    titleAttempts: 0
   };
-}
-
-function summarizeTitle(messages: ChatMessage[]): string {
-  const firstUser = messages.find((message) => message.role === 'user')?.content.trim() || '';
-  if (!firstUser) return '新的對話';
-  return firstUser.length > 30 ? `${firstUser.slice(0, 30)}...` : firstUser;
 }
 
 function sortByUpdatedTime(conversations: ConversationRecord[]): ConversationRecord[] {
@@ -65,6 +119,9 @@ function sanitizeConversation(input: unknown): ConversationRecord | null {
     createdAt?: unknown;
     updatedAt?: unknown;
     messages?: unknown;
+    aiTitle?: unknown;
+    titleStatus?: unknown;
+    titleAttempts?: unknown;
   };
 
   const id = String(item.id || '').trim();
@@ -73,12 +130,16 @@ function sanitizeConversation(input: unknown): ConversationRecord | null {
   const now = Date.now();
   const createdAt = Number.isFinite(Number(item.createdAt)) ? Number(item.createdAt) : now;
   const updatedAt = Number.isFinite(Number(item.updatedAt)) ? Number(item.updatedAt) : createdAt;
+  const messages = sanitizeMessages(item.messages);
 
   return {
     id,
     createdAt,
     updatedAt,
-    messages: sanitizeMessages(item.messages)
+    messages,
+    aiTitle: normalizeTitle(item.aiTitle),
+    titleStatus: normalizeTitleStatus(item.titleStatus),
+    titleAttempts: Math.max(0, Number.isFinite(Number(item.titleAttempts)) ? Number(item.titleAttempts) : 0)
   };
 }
 
@@ -109,7 +170,7 @@ function ensureStore(raw: unknown, seedMessages: ChatMessage[]): { store: UserCo
   }
 
   const parsed = raw as { activeConversationId?: unknown; conversations?: unknown[] };
-  const sanitizedMap = new Map<string, ConversationRecord>();
+  const map = new Map<string, ConversationRecord>();
 
   for (const item of Array.isArray(parsed.conversations) ? parsed.conversations : []) {
     const conversation = sanitizeConversation(item);
@@ -118,19 +179,16 @@ function ensureStore(raw: unknown, seedMessages: ChatMessage[]): { store: UserCo
       continue;
     }
 
-    const existing = sanitizedMap.get(conversation.id);
+    const existing = map.get(conversation.id);
     if (!existing || conversation.updatedAt >= existing.updatedAt) {
-      sanitizedMap.set(conversation.id, conversation);
-      if (existing) {
-        changed = true;
-      }
+      map.set(conversation.id, conversation);
+      if (existing) changed = true;
     } else {
       changed = true;
     }
   }
 
-  let conversations = sortByUpdatedTime([...sanitizedMap.values()]);
-
+  let conversations = sortByUpdatedTime([...map.values()]);
   if (!conversations.length) {
     conversations = [createConversation(seedMessages)];
     changed = true;
@@ -139,10 +197,7 @@ function ensureStore(raw: unknown, seedMessages: ChatMessage[]): { store: UserCo
   const activeId = String(parsed.activeConversationId || '').trim();
   const hasActive = conversations.some((conversation) => conversation.id === activeId);
   const activeConversationId = hasActive ? activeId : conversations[0].id;
-
-  if (!hasActive) {
-    changed = true;
-  }
+  if (!hasActive) changed = true;
 
   return {
     store: {
@@ -157,9 +212,7 @@ function readStore(userId: string, seedMessages: ChatMessage[]): { store: UserCo
   const key = historyKey(userId);
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) {
-      return ensureStore(null, seedMessages);
-    }
+    if (!raw) return ensureStore(null, seedMessages);
     return ensureStore(JSON.parse(raw), seedMessages);
   } catch {
     return ensureStore(null, seedMessages);
@@ -170,6 +223,20 @@ function writeStore(userId: string, store: UserConversationStore): void {
   localStorage.setItem(historyKey(userId), JSON.stringify(store));
 }
 
+function toSummary(conversation: ConversationRecord, activeConversationId: string): ConversationSummary {
+  return {
+    id: conversation.id,
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+    messageCount: conversation.messages.length,
+    isActive: conversation.id === activeConversationId,
+    title: displayTitle(conversation),
+    titleStatus: conversation.titleStatus,
+    titleAttempts: conversation.titleAttempts,
+    canGenerateTitle: canGenerateTitle(conversation)
+  };
+}
+
 function toState(store: UserConversationStore): ConversationState {
   const sorted = sortByUpdatedTime(store.conversations);
   const active = sorted.find((conversation) => conversation.id === store.activeConversationId) || sorted[0];
@@ -177,127 +244,24 @@ function toState(store: UserConversationStore): ConversationState {
   return {
     activeConversationId: active.id,
     messages: active.messages,
-    summaries: sorted.map((conversation) => ({
-      id: conversation.id,
-      createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt,
-      messageCount: conversation.messages.length,
-      isActive: conversation.id === active.id,
-      title: summarizeTitle(conversation.messages)
-    }))
+    summaries: sorted.map((conversation) => toSummary(conversation, active.id))
   };
-}
-
-export function sanitizeMessages(input: unknown): ChatMessage[] {
-  if (!Array.isArray(input)) return [];
-
-  return input
-    .filter((item) => typeof item === 'object' && item !== null)
-    .map((item) => item as { role?: unknown; content?: unknown })
-    .filter((item) => item.role === 'user' || item.role === 'assistant')
-    .map((item) => ({
-      role: item.role as ChatMessage['role'],
-      content: String(item.content || '')
-    }))
-    .filter((item) => item.content.trim());
-}
-
-export function readOrCreateActiveConversation(userId: string, seedMessages: ChatMessage[]): ChatMessage[] {
-  const { store, changed } = readStore(userId, seedMessages);
-  if (changed) {
-    writeStore(userId, store);
-  }
-
-  const active = store.conversations.find((conversation) => conversation.id === store.activeConversationId);
-  if (!active) {
-    const fallback = createConversation(seedMessages);
-    const repairedStore: UserConversationStore = {
-      activeConversationId: fallback.id,
-      conversations: [fallback, ...store.conversations]
-    };
-    writeStore(userId, repairedStore);
-    return fallback.messages;
-  }
-
-  if (!active.messages.length) {
-    active.messages = sanitizeMessages(seedMessages);
-    active.updatedAt = Date.now();
-    writeStore(userId, {
-      ...store,
-      conversations: sortByUpdatedTime(store.conversations)
-    });
-  }
-
-  return active.messages.length ? active.messages : sanitizeMessages(seedMessages);
-}
-
-export function saveActiveConversation(userId: string, messages: ChatMessage[], seedMessages: ChatMessage[]): void {
-  const { store } = readStore(userId, seedMessages);
-  const now = Date.now();
-  const sanitized = sanitizeMessages(messages);
-
-  const nextConversations = store.conversations.map((conversation) => {
-    if (conversation.id !== store.activeConversationId) {
-      return conversation;
-    }
-    return {
-      ...conversation,
-      updatedAt: now,
-      messages: sanitized
-    };
-  });
-
-  if (!nextConversations.some((conversation) => conversation.id === store.activeConversationId)) {
-    nextConversations.push({
-      ...createConversation(seedMessages),
-      id: store.activeConversationId,
-      updatedAt: now,
-      messages: sanitized
-    });
-  }
-
-  writeStore(userId, {
-    activeConversationId: store.activeConversationId,
-    conversations: sortByUpdatedTime(nextConversations)
-  });
-}
-
-export function listConversationSummaries(userId: string, seedMessages: ChatMessage[]): ConversationSummary[] {
-  const { store, changed } = readStore(userId, seedMessages);
-  if (changed) {
-    writeStore(userId, store);
-  }
-
-  return sortByUpdatedTime(store.conversations).map((conversation) => ({
-    id: conversation.id,
-    createdAt: conversation.createdAt,
-    updatedAt: conversation.updatedAt,
-    messageCount: conversation.messages.length,
-    isActive: conversation.id === store.activeConversationId,
-    title: summarizeTitle(conversation.messages)
-  }));
 }
 
 export function readConversationState(userId: string, seedMessages: ChatMessage[]): ConversationState {
   const { store, changed } = readStore(userId, seedMessages);
-  if (changed) {
-    writeStore(userId, store);
-  }
+  if (changed) writeStore(userId, store);
   return toState(store);
 }
 
-export function setActiveConversation(
-  userId: string,
-  conversationId: string,
-  seedMessages: ChatMessage[]
-): ConversationState {
+export function setActiveConversation(userId: string, conversationId: string, seedMessages: ChatMessage[]): ConversationState {
   const { store } = readStore(userId, seedMessages);
   const sorted = sortByUpdatedTime(store.conversations);
   const exists = sorted.some((conversation) => conversation.id === conversationId);
-  const activeConversationId = exists ? conversationId : sorted[0].id;
+  const nextActive = exists ? conversationId : sorted[0].id;
 
   const next: UserConversationStore = {
-    activeConversationId,
+    activeConversationId: nextActive,
     conversations: sorted
   };
 
@@ -330,15 +294,14 @@ export function saveConversationMessages(
 
   const hasTarget = store.conversations.some((conversation) => conversation.id === conversationId);
   const conversations = hasTarget
-    ? store.conversations.map((conversation) => (
-      conversation.id === conversationId
-        ? {
-          ...conversation,
-          updatedAt: now,
-          messages: sanitized
-        }
-        : conversation
-    ))
+    ? store.conversations.map((conversation) => {
+      if (conversation.id !== conversationId) return conversation;
+      return {
+        ...conversation,
+        updatedAt: now,
+        messages: sanitized
+      };
+    })
     : [
       {
         ...createConversation(seedMessages),
@@ -378,6 +341,82 @@ export function deleteConversationForUser(
   const next: UserConversationStore = {
     activeConversationId: nextActive,
     conversations: sorted
+  };
+
+  writeStore(userId, next);
+  return toState(next);
+}
+
+export interface TitleGenerationPayload {
+  conversationId: string;
+  messages: ChatMessage[];
+  attempts: number;
+}
+
+export function getTitleGenerationPayload(
+  userId: string,
+  conversationId: string,
+  seedMessages: ChatMessage[]
+): TitleGenerationPayload | null {
+  const { store } = readStore(userId, seedMessages);
+  const conversation = store.conversations.find((item) => item.id === conversationId);
+  if (!conversation) return null;
+  if (!canGenerateTitle(conversation)) return null;
+
+  return {
+    conversationId,
+    messages: conversation.messages,
+    attempts: conversation.titleAttempts
+  };
+}
+
+export function setConversationGeneratedTitle(
+  userId: string,
+  conversationId: string,
+  title: string,
+  seedMessages: ChatMessage[]
+): ConversationState {
+  const { store } = readStore(userId, seedMessages);
+
+  const trimmedTitle = title.trim();
+  const conversations = store.conversations.map((conversation) => {
+    if (conversation.id !== conversationId) return conversation;
+    return {
+      ...conversation,
+      aiTitle: trimmedTitle,
+      titleStatus: (trimmedTitle ? 'generated' : 'fallback') as TitleStatus,
+      titleAttempts: Math.max(conversation.titleAttempts, 1)
+    };
+  });
+
+  const next: UserConversationStore = {
+    ...store,
+    conversations: sortByUpdatedTime(conversations)
+  };
+
+  writeStore(userId, next);
+  return toState(next);
+}
+
+export function markConversationTitleFailure(
+  userId: string,
+  conversationId: string,
+  seedMessages: ChatMessage[]
+): ConversationState {
+  const { store } = readStore(userId, seedMessages);
+
+  const conversations = store.conversations.map((conversation) => {
+    if (conversation.id !== conversationId) return conversation;
+    return {
+      ...conversation,
+      titleStatus: 'fallback' as TitleStatus,
+      titleAttempts: conversation.titleAttempts + 1
+    };
+  });
+
+  const next: UserConversationStore = {
+    ...store,
+    conversations: sortByUpdatedTime(conversations)
   };
 
   writeStore(userId, next);

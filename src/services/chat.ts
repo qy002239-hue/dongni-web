@@ -16,6 +16,53 @@ interface SendMessageOptions {
   timeoutMs?: number;
 }
 
+interface GenerateTitleOptions {
+  accessToken?: string;
+  signal?: AbortSignal;
+}
+
+function normalizeTitle(rawTitle: unknown): string {
+  const cleaned = String(rawTitle || '')
+    .replace(/["'「」『』]/g, '')
+    .replace(/[。！？!?]/g, '')
+    .replace(/^\d+[).、\s]*/g, '')
+    .replace(/聊天|對話/g, '')
+    .trim();
+
+  const chars = [...cleaned];
+  if (chars.length < 8) return '';
+  if (chars.length > 20) return chars.slice(0, 20).join('');
+  return cleaned;
+}
+
+export async function generateConversationTitle(
+  messages: ChatMessage[],
+  options: GenerateTitleOptions = {}
+): Promise<string> {
+  const { accessToken = '', signal } = options;
+
+  if (isLocalE2E(accessToken)) {
+    return '心裡疲憊與自我懷疑';
+  }
+
+  const response = await requestText('/api/chat-title', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ messages }),
+    signal
+  });
+
+  try {
+    const data = await response.json() as { title?: string };
+    return normalizeTitle(data?.title || '');
+  } catch {
+    return '';
+  }
+}
+
 export async function sendMessageToServer(
   messages: ChatMessage[],
   onChunk: (chunk: string) => void,

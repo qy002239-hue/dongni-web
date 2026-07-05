@@ -21,13 +21,16 @@ import {
 import {
   createConversationForUser,
   deleteConversationForUser,
+  getTitleGenerationPayload,
+  markConversationTitleFailure,
   readConversationState,
   saveConversationMessages,
+  setConversationGeneratedTitle,
   setActiveConversation
 } from './lib/chat-history';
 import type { AuthSession, ChatMessage } from './types/chat';
 import type { ConversationSummary } from './lib/chat-history';
-import { sendMessageToServer } from './services/chat';
+import { generateConversationTitle, sendMessageToServer } from './services/chat';
 import { isSupabaseConfigured, supabase } from './supabase';
 
 const DEFAULT_MESSAGES: ChatMessage[] = [
@@ -58,6 +61,8 @@ function App() {
   const activeStreamRef = useRef(false);
   const streamAbortRef = useRef<AbortController | null>(null);
   const activeConversationIdRef = useRef('');
+  const titleGenerationInFlightRef = useRef(new Set<string>());
+  const titleRetryTimersRef = useRef(new Map<string, number>());
   const lastSubmittedRef = useRef<{ content: string; at: number }>({ content: '', at: 0 });
   const [composerHeight, setComposerHeight] = useState(176);
   const userId = user?.id || '';
@@ -119,6 +124,18 @@ function App() {
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
+
+  useEffect(() => {
+    const timerMap = titleRetryTimersRef.current;
+    const inflightSet = titleGenerationInFlightRef.current;
+    return () => {
+      for (const timerId of timerMap.values()) {
+        window.clearTimeout(timerId);
+      }
+      timerMap.clear();
+      inflightSet.clear();
+    };
+  }, []);
 
   useEffect(() => {
     const abortStreaming = () => {
@@ -236,6 +253,11 @@ function App() {
         setActiveConversationId('');
         setConversationList([]);
       });
+      for (const timerId of titleRetryTimersRef.current.values()) {
+        window.clearTimeout(timerId);
+      }
+      titleRetryTimersRef.current.clear();
+      titleGenerationInFlightRef.current.clear();
       return;
     }
 
@@ -297,6 +319,70 @@ function App() {
     setConversationList(state.summaries);
     setMessages(state.messages.length ? state.messages : DEFAULT_MESSAGES);
   }, [userId]);
+
+  const requestConversationTitle = useCallback(async (conversationId: string) => {
+    if (!userId) return;
+    if (titleGenerationInFlightRef.current.has(conversationId)) return;
+
+    const payload = getTitleGenerationPayload(userId, conversationId, DEFAULT_MESSAGES);
+    if (!payload) return;
+
+    titleGenerationInFlightRef.current.add(conversationId);
+
+    try {
+      const title = await generateConversationTitle(payload.messages, { accessToken });
+      const nextState = title
+        ? setConversationGeneratedTitle(userId, conversationId, title, DEFAULT_MESSAGES)
+        : markConversationTitleFailure(userId, conversationId, DEFAULT_MESSAGES);
+
+      setConversationList(nextState.summaries);
+    } catch {
+      const nextState = markConversationTitleFailure(userId, conversationId, DEFAULT_MESSAGES);
+      setConversationList(nextState.summaries);
+    } finally {
+      titleGenerationInFlightRef.current.delete(conversationId);
+    }
+  }, [accessToken, userId]);
+
+  useEffect(() => {
+    if (!userId || !activeConversationId || isSubmitting) return;
+
+    const active = conversationList.find((conversation) => conversation.id === activeConversationId);
+    if (!active) return;
+    if (active.titleStatus !== 'pending') return;
+    if (!active.canGenerateTitle) return;
+
+    void requestConversationTitle(activeConversationId);
+  }, [activeConversationId, conversationList, isSubmitting, requestConversationTitle, userId]);
+
+  useEffect(() => {
+    if (!userId || isSubmitting) return;
+
+    const timerMap = titleRetryTimersRef.current;
+
+    const active = conversationList.find((conversation) => conversation.id === activeConversationId);
+    if (!active) return;
+    if (active.titleStatus !== 'fallback') return;
+    if (active.titleAttempts !== 1) return;
+    if (!active.canGenerateTitle) return;
+    if (titleGenerationInFlightRef.current.has(activeConversationId)) return;
+    if (timerMap.has(activeConversationId)) return;
+
+    const timerId = window.setTimeout(() => {
+      timerMap.delete(activeConversationId);
+      void requestConversationTitle(activeConversationId);
+    }, 1600);
+
+    timerMap.set(activeConversationId, timerId);
+
+    return () => {
+      const pending = timerMap.get(activeConversationId);
+      if (pending) {
+        window.clearTimeout(pending);
+        timerMap.delete(activeConversationId);
+      }
+    };
+  }, [activeConversationId, conversationList, isSubmitting, requestConversationTitle, userId]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
