@@ -18,7 +18,7 @@ import {
   withE2E,
   localE2EToken
 } from './lib/auth';
-import { readChatHistory, saveChatHistory } from './lib/chat-history';
+import { readOrCreateActiveConversation, saveActiveConversation } from './lib/chat-history';
 import type { AuthSession, ChatMessage } from './types/chat';
 import { sendMessageToServer } from './services/chat';
 import { isSupabaseConfigured, supabase } from './supabase';
@@ -218,14 +218,14 @@ function App() {
       return;
     }
 
-    const history = readChatHistory(user.id);
+    const history = readOrCreateActiveConversation(user.id, DEFAULT_MESSAGES);
     const next = history.length ? history : DEFAULT_MESSAGES;
     setMessages(next);
   }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
-    saveChatHistory(user.id, messages);
+    saveActiveConversation(user.id, messages, DEFAULT_MESSAGES);
   }, [messages, user?.id]);
 
   useEffect(() => {
