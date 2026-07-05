@@ -20,6 +20,13 @@ export interface ConversationSummary {
   updatedAt: number;
   messageCount: number;
   isActive: boolean;
+  title: string;
+}
+
+export interface ConversationState {
+  activeConversationId: string;
+  messages: ChatMessage[];
+  summaries: ConversationSummary[];
 }
 
 function historyKey(userId: string): string {
@@ -38,6 +45,12 @@ function createConversation(seedMessages: ChatMessage[]): ConversationRecord {
     updatedAt: now,
     messages: sanitizeMessages(seedMessages)
   };
+}
+
+function summarizeTitle(messages: ChatMessage[]): string {
+  const firstUser = messages.find((message) => message.role === 'user')?.content.trim() || '';
+  if (!firstUser) return '新的對話';
+  return firstUser.length > 30 ? `${firstUser.slice(0, 30)}...` : firstUser;
 }
 
 function sortByUpdatedTime(conversations: ConversationRecord[]): ConversationRecord[] {
@@ -157,6 +170,24 @@ function writeStore(userId: string, store: UserConversationStore): void {
   localStorage.setItem(historyKey(userId), JSON.stringify(store));
 }
 
+function toState(store: UserConversationStore): ConversationState {
+  const sorted = sortByUpdatedTime(store.conversations);
+  const active = sorted.find((conversation) => conversation.id === store.activeConversationId) || sorted[0];
+
+  return {
+    activeConversationId: active.id,
+    messages: active.messages,
+    summaries: sorted.map((conversation) => ({
+      id: conversation.id,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      messageCount: conversation.messages.length,
+      isActive: conversation.id === active.id,
+      title: summarizeTitle(conversation.messages)
+    }))
+  };
+}
+
 export function sanitizeMessages(input: unknown): ChatMessage[] {
   if (!Array.isArray(input)) return [];
 
@@ -242,6 +273,113 @@ export function listConversationSummaries(userId: string, seedMessages: ChatMess
     createdAt: conversation.createdAt,
     updatedAt: conversation.updatedAt,
     messageCount: conversation.messages.length,
-    isActive: conversation.id === store.activeConversationId
+    isActive: conversation.id === store.activeConversationId,
+    title: summarizeTitle(conversation.messages)
   }));
+}
+
+export function readConversationState(userId: string, seedMessages: ChatMessage[]): ConversationState {
+  const { store, changed } = readStore(userId, seedMessages);
+  if (changed) {
+    writeStore(userId, store);
+  }
+  return toState(store);
+}
+
+export function setActiveConversation(
+  userId: string,
+  conversationId: string,
+  seedMessages: ChatMessage[]
+): ConversationState {
+  const { store } = readStore(userId, seedMessages);
+  const sorted = sortByUpdatedTime(store.conversations);
+  const exists = sorted.some((conversation) => conversation.id === conversationId);
+  const activeConversationId = exists ? conversationId : sorted[0].id;
+
+  const next: UserConversationStore = {
+    activeConversationId,
+    conversations: sorted
+  };
+
+  writeStore(userId, next);
+  return toState(next);
+}
+
+export function createConversationForUser(userId: string, seedMessages: ChatMessage[]): ConversationState {
+  const { store } = readStore(userId, seedMessages);
+  const created = createConversation(seedMessages);
+
+  const next: UserConversationStore = {
+    activeConversationId: created.id,
+    conversations: sortByUpdatedTime([created, ...store.conversations])
+  };
+
+  writeStore(userId, next);
+  return toState(next);
+}
+
+export function saveConversationMessages(
+  userId: string,
+  conversationId: string,
+  messages: ChatMessage[],
+  seedMessages: ChatMessage[]
+): ConversationState {
+  const { store } = readStore(userId, seedMessages);
+  const now = Date.now();
+  const sanitized = sanitizeMessages(messages);
+
+  const hasTarget = store.conversations.some((conversation) => conversation.id === conversationId);
+  const conversations = hasTarget
+    ? store.conversations.map((conversation) => (
+      conversation.id === conversationId
+        ? {
+          ...conversation,
+          updatedAt: now,
+          messages: sanitized
+        }
+        : conversation
+    ))
+    : [
+      {
+        ...createConversation(seedMessages),
+        id: conversationId,
+        updatedAt: now,
+        messages: sanitized
+      },
+      ...store.conversations
+    ];
+
+  const next: UserConversationStore = {
+    activeConversationId: conversationId,
+    conversations: sortByUpdatedTime(conversations)
+  };
+
+  writeStore(userId, next);
+  return toState(next);
+}
+
+export function deleteConversationForUser(
+  userId: string,
+  conversationId: string,
+  seedMessages: ChatMessage[]
+): ConversationState {
+  const { store } = readStore(userId, seedMessages);
+  let conversations = store.conversations.filter((conversation) => conversation.id !== conversationId);
+
+  if (!conversations.length) {
+    conversations = [createConversation(seedMessages)];
+  }
+
+  const sorted = sortByUpdatedTime(conversations);
+  const nextActive = sorted.some((conversation) => conversation.id === store.activeConversationId)
+    ? store.activeConversationId
+    : sorted[0].id;
+
+  const next: UserConversationStore = {
+    activeConversationId: nextActive,
+    conversations: sorted
+  };
+
+  writeStore(userId, next);
+  return toState(next);
 }

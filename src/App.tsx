@@ -18,8 +18,15 @@ import {
   withE2E,
   localE2EToken
 } from './lib/auth';
-import { readOrCreateActiveConversation, saveActiveConversation } from './lib/chat-history';
+import {
+  createConversationForUser,
+  deleteConversationForUser,
+  readConversationState,
+  saveConversationMessages,
+  setActiveConversation
+} from './lib/chat-history';
 import type { AuthSession, ChatMessage } from './types/chat';
+import type { ConversationSummary } from './lib/chat-history';
 import { sendMessageToServer } from './services/chat';
 import { isSupabaseConfigured, supabase } from './supabase';
 
@@ -40,6 +47,8 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true);
 
   const [messages, setMessages] = useState<ChatMessage[]>(DEFAULT_MESSAGES);
+  const [activeConversationId, setActiveConversationId] = useState('');
+  const [conversationList, setConversationList] = useState<ConversationSummary[]>([]);
   const [input, setInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,8 +57,10 @@ function App() {
   const composerRef = useRef<HTMLFormElement | null>(null);
   const activeStreamRef = useRef(false);
   const streamAbortRef = useRef<AbortController | null>(null);
+  const activeConversationIdRef = useRef('');
   const lastSubmittedRef = useRef<{ content: string; at: number }>({ content: '', at: 0 });
   const [composerHeight, setComposerHeight] = useState(176);
+  const userId = user?.id || '';
 
   const googleLoginEnabled = isSupabaseConfigured && Boolean(supabase);
   const isMockSession = accessToken === localE2EToken && isLocalHost();
@@ -87,6 +98,8 @@ function App() {
       setUser(null);
       setAccessToken('');
       setMessages(DEFAULT_MESSAGES);
+      setActiveConversationId('');
+      setConversationList([]);
       navigate(withE2E(ROUTES.chat), { replace: true });
       return;
     }
@@ -98,8 +111,14 @@ function App() {
     setUser(null);
     setAccessToken('');
     setMessages(DEFAULT_MESSAGES);
+    setActiveConversationId('');
+    setConversationList([]);
     navigate(withE2E(ROUTES.chat), { replace: true });
   }, [clearToast, isMockSession, navigate]);
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   useEffect(() => {
     const abortStreaming = () => {
@@ -211,22 +230,73 @@ function App() {
   }, [authLoading, location.pathname, navigate, user, showToast]);
 
   useEffect(() => {
-    if (!user?.id) {
+    if (!userId) {
       queueMicrotask(() => {
         setMessages(DEFAULT_MESSAGES);
+        setActiveConversationId('');
+        setConversationList([]);
       });
       return;
     }
 
-    const history = readOrCreateActiveConversation(user.id, DEFAULT_MESSAGES);
-    const next = history.length ? history : DEFAULT_MESSAGES;
-    setMessages(next);
-  }, [user?.id]);
+    const state = readConversationState(userId, DEFAULT_MESSAGES);
+    setActiveConversationId(state.activeConversationId);
+    setConversationList(state.summaries);
+    setMessages(state.messages.length ? state.messages : DEFAULT_MESSAGES);
+  }, [userId]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    saveActiveConversation(user.id, messages, DEFAULT_MESSAGES);
-  }, [messages, user?.id]);
+    if (!userId || !activeConversationId) return;
+    const state = saveConversationMessages(userId, activeConversationId, messages, DEFAULT_MESSAGES);
+    setConversationList(state.summaries);
+  }, [messages, userId, activeConversationId]);
+
+  const switchConversation = useCallback((conversationId: string) => {
+    if (!userId) return;
+
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    activeStreamRef.current = false;
+    setIsSubmitting(false);
+    setInput('');
+
+    const state = setActiveConversation(userId, conversationId, DEFAULT_MESSAGES);
+    setActiveConversationId(state.activeConversationId);
+    setConversationList(state.summaries);
+    setMessages(state.messages.length ? state.messages : DEFAULT_MESSAGES);
+  }, [userId]);
+
+  const createNewConversation = useCallback(() => {
+    if (!userId) return;
+
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    activeStreamRef.current = false;
+    setIsSubmitting(false);
+    setInput('');
+
+    const state = createConversationForUser(userId, DEFAULT_MESSAGES);
+    setActiveConversationId(state.activeConversationId);
+    setConversationList(state.summaries);
+    setMessages(state.messages.length ? state.messages : DEFAULT_MESSAGES);
+  }, [userId]);
+
+  const deleteConversation = useCallback((conversationId: string) => {
+    if (!userId) return;
+
+    if (conversationId === activeConversationIdRef.current) {
+      streamAbortRef.current?.abort();
+      streamAbortRef.current = null;
+      activeStreamRef.current = false;
+      setIsSubmitting(false);
+      setInput('');
+    }
+
+    const state = deleteConversationForUser(userId, conversationId, DEFAULT_MESSAGES);
+    setActiveConversationId(state.activeConversationId);
+    setConversationList(state.summaries);
+    setMessages(state.messages.length ? state.messages : DEFAULT_MESSAGES);
+  }, [userId]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -364,6 +434,7 @@ function App() {
     const userMessage: ChatMessage = { role: 'user', content: trimmedInput };
     const nextMessages = [...messages, userMessage];
     const aiIndex = nextMessages.length;
+    const streamConversationId = activeConversationId;
     const previousInput = rawInput;
 
     lastSubmittedRef.current = { content: normalizedInput, at: now };
@@ -374,7 +445,7 @@ function App() {
     try {
       await sendMessageToServer(nextMessages, (chunk) => {
         setMessages((prev) => prev.map((message, index) => (
-          index === aiIndex
+          activeConversationIdRef.current === streamConversationId && index === aiIndex
             ? { ...message, content: `${message.content || ''}${chunk}` }
             : message
         )));
@@ -463,6 +534,39 @@ function App() {
   return (
     <div className="dongni-ocean-page">
       <div className="dongni-chat-frame">
+        <aside className="dongni-conversation-sidebar">
+          <button type="button" className="dongni-new-conversation" onClick={createNewConversation}>
+            開始新對話
+          </button>
+
+          <div className="dongni-conversation-list" role="list" aria-label="Conversation list">
+            {conversationList.map((conversation) => (
+              <div
+                key={conversation.id}
+                role="listitem"
+                className={`dongni-conversation-item ${conversation.isActive ? 'dongni-conversation-item-active' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="dongni-conversation-select"
+                  onClick={() => switchConversation(conversation.id)}
+                >
+                  {conversation.title}
+                </button>
+                <button
+                  type="button"
+                  className="dongni-conversation-delete"
+                  onClick={() => deleteConversation(conversation.id)}
+                  aria-label="刪除對話"
+                >
+                  刪除
+                </button>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <main className="dongni-chat-main">
         <div className="dongni-chat-nav">
           <div className="dongni-nav-button" aria-hidden="true">已登入</div>
           <div className="dongni-chat-title">【懂 妳】</div>
@@ -528,6 +632,7 @@ function App() {
             {isSubmitting ? '傳送中...' : '送出'}
           </button>
         </form>
+        </main>
       </div>
     </div>
   );
