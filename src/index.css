@@ -18,7 +18,8 @@ body,
 #root {
   margin: 0;
   padding: 0;
-  min-height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   width: 100%;
 }
 
@@ -33,10 +34,10 @@ body {
     var(--ocean-mid) 50%,
     var(--ocean-light) 100%
   );
-  min-height: 100vh;
+  min-height: 100dvh;
   color: #e2e8f0;
   overscroll-behavior: none;
-  overflow: auto;
+  overflow: hidden;
 }
 
 button,

@@ -6,6 +6,7 @@
 
 .dongni-ocean-page {
   --mobile-bottom-inset: 0px;
+  height: 100dvh;
   min-height: 100dvh;
   width: 100%;
   margin: 0;
@@ -41,6 +42,7 @@
   width: 100%;
   max-width: 1180px;
   height: calc(100dvh - 40px);
+  min-height: 0;
   max-height: calc(100dvh - 40px);
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -50,6 +52,7 @@
 .dongni-chat-frame-simple {
   grid-template-columns: 1fr;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: 0;
   gap: 10px;
 }
 
@@ -130,6 +133,9 @@
 .dongni-chat-main {
   min-width: 0;
   min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
@@ -190,6 +196,7 @@
 
 .dongni-message-list {
   min-height: 0;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -251,19 +258,21 @@
 }
 
 .dongni-chat-form {
-  position: relative;
+  position: sticky;
+  bottom: 0;
   z-index: 10;
+  flex-shrink: 0;
   width: 100%;
   max-width: 960px;
   margin: 0 auto;
-  padding: 8px 0 calc(12px + var(--mobile-bottom-inset));
+  padding: 6px 0 calc(8px + var(--mobile-bottom-inset));
   background: linear-gradient(180deg, rgba(2, 7, 13, 0) 0%, rgba(2, 7, 13, 0.72) 38%, rgba(2, 7, 13, 0.9) 100%);
 }
 
 .dongni-chat-input {
   box-sizing: border-box;
   width: 100%;
-  min-height: 112px;
+  min-height: 88px;
   max-height: 22svh;
   padding: 18px 24px;
   border-radius: 24px;
@@ -387,6 +396,7 @@
     grid-template-rows: auto minmax(0, 1fr);
     gap: 10px;
     height: calc(100dvh - 24px);
+    min-height: 0;
     max-height: calc(100dvh - 24px);
   }
 
@@ -410,6 +420,8 @@
 
   .dongni-chat-main {
     min-height: 0;
+    height: 100%;
+    max-height: 100%;
   }
 
   .dongni-message-list {
@@ -428,12 +440,13 @@
 
   .dongni-chat-form {
     max-width: calc(100vw - 24px);
-    padding-bottom: calc(8px + var(--mobile-bottom-inset));
+    padding-bottom: calc(6px + var(--mobile-bottom-inset));
   }
 
   .dongni-chat-input {
-    min-height: 104px;
-    padding: 18px;
+    min-height: 72px;
+    max-height: 18svh;
+    padding: 14px 16px;
     font-size: 16px;
   }
 }
