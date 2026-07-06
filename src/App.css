@@ -138,8 +138,8 @@
   height: 100%;
   max-height: 100%;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
 .dongni-chat-nav {
@@ -198,12 +198,11 @@
 
 .dongni-message-list {
   min-height: 0;
-  flex: 1 1 auto;
-  height: auto;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  padding: 36px 24px 28px;
+  padding: 36px 24px 20px;
 }
 
 .dongni-message-list-centered {
@@ -263,20 +262,24 @@
 .dongni-chat-form {
   position: relative;
   z-index: 10;
-  flex: 0 0 auto;
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: start;
+  flex-shrink: 0;
   width: 100%;
   max-width: 960px;
   margin: 0 auto;
-  margin-top: 6px;
+  margin-top: 4px;
   padding: 6px 0 calc(8px + var(--mobile-bottom-inset));
   background: linear-gradient(180deg, rgba(2, 7, 13, 0) 0%, rgba(2, 7, 13, 0.72) 38%, rgba(2, 7, 13, 0.9) 100%);
 }
 
 .dongni-chat-input {
+  display: block;
   box-sizing: border-box;
   width: 100%;
-  min-height: 88px;
-  max-height: 22svh;
+  min-height: 96px;
+  max-height: min(168px, 24svh);
   padding: 18px 24px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -302,6 +305,7 @@
 .dongni-e2e-fill,
 .auth-primary,
 .auth-secondary {
+  display: block;
   width: 100%;
   border-radius: 999px;
   cursor: pointer;
@@ -449,8 +453,8 @@
   }
 
   .dongni-chat-input {
-    min-height: 72px;
-    max-height: 18svh;
+    min-height: 84px;
+    max-height: min(140px, 20svh);
     padding: 14px 16px;
     font-size: 16px;
   }
