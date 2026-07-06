@@ -1,26 +1,34 @@
-import {
-  PROMPT_FILE_PATH,
-  getPromptDiagnosticsByType
-} from './_prompt-manager.js';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-export async function buildChatSystemPrompt(memory) {
-  const [system, chat] = await Promise.all([
-    getPromptDiagnosticsByType('system', { preferredId: process.env.OPENROUTER_SYSTEM_PROMPT_ID }),
-    getPromptDiagnosticsByType('chat', { preferredId: process.env.OPENROUTER_CHAT_PROMPT_ID })
-  ]);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CORE_SYSTEM_PROMPT_FILE_PATH = path.resolve(__dirname, '../prompts/伊格利特_system_prompt_v1.md');
 
-  const basePrompt = [system.content, chat.content].filter(Boolean).join('\n\n').trim();
-  const trimmedMemory = String(memory || '').trim();
-  const finalSystemPrompt = trimmedMemory
-    ? `${basePrompt}\n\n使用者留下的長期記憶：\n${trimmedMemory.slice(0, 3000)}\n`
-    : basePrompt;
+function sha256(text) {
+  return createHash('sha256').update(String(text), 'utf8').digest('hex');
+}
+
+export async function buildChatSystemPrompt() {
+  const sourcePrompt = await readFile(CORE_SYSTEM_PROMPT_FILE_PATH, 'utf8');
+  if (!sourcePrompt) {
+    throw new Error('Core system prompt file is empty.');
+  }
+
+  const finalSystemPrompt = sourcePrompt;
+  const sourcePromptSha256 = sha256(sourcePrompt);
+  const finalSystemPromptSha256 = sha256(finalSystemPrompt);
+  const exactMatch = sourcePrompt === finalSystemPrompt;
 
   return {
-    promptFilePath: PROMPT_FILE_PATH,
-    system,
-    chat,
-    basePrompt,
+    promptFilePath: CORE_SYSTEM_PROMPT_FILE_PATH,
+    sourcePrompt,
+    sourcePromptSha256,
     finalSystemPrompt,
+    finalSystemPromptSha256,
+    exactMatch,
     finalSystemPromptPreview: finalSystemPrompt.slice(0, 500),
     finalSystemPromptLength: finalSystemPrompt.length
   };

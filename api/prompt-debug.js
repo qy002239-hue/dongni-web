@@ -16,37 +16,25 @@ export default async function handler(req, res) {
     return res.status(envError.status).json({ error: envError.message });
   }
 
-  const body = req.method === 'POST' ? parseJsonBody(req) : {};
-  const memory = String(body.memory || '').trim();
+  if (req.method === 'POST') {
+    parseJsonBody(req);
+  }
 
-  const promptBuild = await buildChatSystemPrompt(memory);
+  const promptBuild = await buildChatSystemPrompt();
 
   return res.status(200).json({
     loadedPrompt: {
-      promptFilePath: promptBuild.promptFilePath,
-      system: {
-        type: promptBuild.system.type,
-        preferredId: promptBuild.system.preferredId,
-        selectedPromptId: promptBuild.system.selectedPromptId,
-        selectedPromptName: promptBuild.system.selectedPromptName,
-        selectedPromptVersion: promptBuild.system.selectedPromptVersion,
-        usedFallback: promptBuild.system.usedFallback,
-        isMissing: promptBuild.system.isMissing
-      },
-      chat: {
-        type: promptBuild.chat.type,
-        preferredId: promptBuild.chat.preferredId,
-        selectedPromptId: promptBuild.chat.selectedPromptId,
-        selectedPromptName: promptBuild.chat.selectedPromptName,
-        selectedPromptVersion: promptBuild.chat.selectedPromptVersion,
-        usedFallback: promptBuild.chat.usedFallback,
-        isMissing: promptBuild.chat.isMissing
-      }
+      promptFilePath: promptBuild.promptFilePath
     },
     openRouterSystemPrompt: {
       length: promptBuild.finalSystemPromptLength,
       first500: promptBuild.finalSystemPromptPreview,
       full: promptBuild.finalSystemPrompt
+    },
+    hashProof: {
+      sourcePromptSha256: promptBuild.sourcePromptSha256,
+      sentSystemPromptSha256: promptBuild.finalSystemPromptSha256,
+      exactMatch: promptBuild.exactMatch
     }
   });
 }

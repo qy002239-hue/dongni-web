@@ -67,14 +67,16 @@ export default async function handler(req, res) {
   try {
     const supabase = getSupabaseAdmin();
     await getAuthenticatedUser(req, supabase);
-    const promptBuild = await buildChatSystemPrompt(body.memory);
+    const promptBuild = await buildChatSystemPrompt();
+    if (!promptBuild.exactMatch) {
+      return jsonError(res, 500, 'System prompt mismatch detected.');
+    }
 
     console.error('========== CHAT PROMPT DEBUG ==========');
     console.error('promptFilePath', promptBuild.promptFilePath);
-    console.error('system.selectedPromptId', promptBuild.system.selectedPromptId);
-    console.error('system.usedFallback', promptBuild.system.usedFallback);
-    console.error('chat.selectedPromptId', promptBuild.chat.selectedPromptId);
-    console.error('chat.usedFallback', promptBuild.chat.usedFallback);
+    console.error('sourcePromptSha256', promptBuild.sourcePromptSha256);
+    console.error('finalSystemPromptSha256', promptBuild.finalSystemPromptSha256);
+    console.error('exactMatch', promptBuild.exactMatch);
     console.error('openrouter.systemPrompt.first500', promptBuild.finalSystemPromptPreview);
     console.error('========== END CHAT PROMPT DEBUG ==========');
 
