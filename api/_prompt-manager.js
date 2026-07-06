@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const promptFilePath = path.resolve(__dirname, '../prompts/prompts.json');
+export const PROMPT_FILE_PATH = promptFilePath;
 
 let cache = {
   mtimeMs: 0,
@@ -99,5 +100,23 @@ export async function getPromptContentByType(type, options = {}) {
   return {
     prompt,
     content: prompt?.content || ''
+  };
+}
+
+export async function getPromptDiagnosticsByType(type, options = {}) {
+  const preferredId = String(options.preferredId || '').trim();
+  const prompt = await getPromptByType(type, { preferredId });
+  const content = prompt?.content || '';
+
+  return {
+    type,
+    preferredId: preferredId || null,
+    selectedPromptId: prompt?.id || null,
+    selectedPromptName: prompt?.name || null,
+    selectedPromptVersion: prompt?.version || null,
+    enabled: Boolean(prompt?.enabled),
+    usedFallback: Boolean(preferredId) && preferredId !== (prompt?.id || null),
+    isMissing: !prompt,
+    content
   };
 }

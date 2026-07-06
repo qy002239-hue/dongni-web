@@ -1,7 +1,7 @@
 import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
 import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
 import { getPublicEnvError, logEnvValidation, validateChatEnv } from './_env.js';
-import { getPromptContentByType } from './_prompt-manager.js';
+import { buildChatSystemPrompt } from './_chat-prompt.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -39,23 +39,6 @@ function sanitizeMessages(messages) {
     .slice(-24);
 }
 
-async function buildSystemPrompt(memory) {
-  const [{ content: systemPrompt }, { content: chatPrompt }] = await Promise.all([
-    getPromptContentByType('system', { preferredId: process.env.OPENROUTER_SYSTEM_PROMPT_ID }),
-    getPromptContentByType('chat', { preferredId: process.env.OPENROUTER_CHAT_PROMPT_ID })
-  ]);
-
-  const basePrompt = [systemPrompt, chatPrompt].filter(Boolean).join('\n\n').trim();
-  const trimmedMemory = String(memory || '').trim();
-  if (!trimmedMemory) return basePrompt;
-
-  return `${basePrompt}
-
-使用者留下的長期記憶：
-${trimmedMemory.slice(0, 3000)}
-`;
-}
-
 export default async function handler(req, res) {
   applyCorsHeaders(req, res);
 
@@ -84,6 +67,16 @@ export default async function handler(req, res) {
   try {
     const supabase = getSupabaseAdmin();
     await getAuthenticatedUser(req, supabase);
+    const promptBuild = await buildChatSystemPrompt(body.memory);
+
+    console.error('========== CHAT PROMPT DEBUG ==========');
+    console.error('promptFilePath', promptBuild.promptFilePath);
+    console.error('system.selectedPromptId', promptBuild.system.selectedPromptId);
+    console.error('system.usedFallback', promptBuild.system.usedFallback);
+    console.error('chat.selectedPromptId', promptBuild.chat.selectedPromptId);
+    console.error('chat.usedFallback', promptBuild.chat.usedFallback);
+    console.error('openrouter.systemPrompt.first500', promptBuild.finalSystemPromptPreview);
+    console.error('========== END CHAT PROMPT DEBUG ==========');
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -96,7 +89,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4-5',
         messages: [
-          { role: 'system', content: await buildSystemPrompt(body.memory) },
+          { role: 'system', content: promptBuild.finalSystemPrompt },
           ...messages
         ],
         max_tokens: 1800,
