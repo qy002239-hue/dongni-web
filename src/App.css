@@ -47,6 +47,16 @@
   gap: 16px;
 }
 
+.dongni-chat-frame-simple {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.dongni-chat-frame-simple .dongni-message-list {
+  min-height: 0;
+}
+
 .dongni-conversation-sidebar {
   min-height: 0;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -378,6 +388,10 @@
     gap: 10px;
     height: calc(100dvh - 24px);
     max-height: calc(100dvh - 24px);
+  }
+
+  .dongni-chat-frame-simple {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
 
   .dongni-conversation-sidebar {

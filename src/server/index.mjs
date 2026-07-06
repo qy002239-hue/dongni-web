@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { getPublicEnvError, logEnvValidation, validateServerEnv } from '../../api/_env.js';
+import { getPublicEnvError, logEnvValidation, validateChatEnv, validateServerEnv } from '../../api/_env.js';
 import { getPromptContentByType } from '../../api/_prompt-manager.js';
 
 const app = express();
@@ -42,18 +42,36 @@ function sanitizeTitleMessages(messages) {
     .slice(-12);
 }
 
+function sanitizeChatMessages(messages) {
+  if (!Array.isArray(messages)) return [];
+
+  return messages
+    .filter((message) => ['user', 'assistant'].includes(message?.role))
+    .map((message) => ({
+      role: message.role,
+      content: String(message.content || '').slice(0, 4000)
+    }))
+    .filter((message) => message.content.trim())
+    .slice(-24);
+}
+
 app.post('/api/chat', async (req, res) => {
-  const envValidation = validateServerEnv();
+  const envValidation = validateChatEnv();
   if (!envValidation.ok) {
     logEnvValidation(envValidation, '[server-chat]');
     const envError = getPublicEnvError(envValidation);
     return res.status(envError.status).json({ error: envError.message });
   }
 
-  const { message, messages } = req.body;
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  const bodyMessages = sanitizeChatMessages(req.body?.messages);
+  const fallbackMessage = String(req.body?.message || '').trim();
+  const formattedMessages = bodyMessages.length
+    ? bodyMessages
+    : (fallbackMessage ? [{ role: 'user', content: fallbackMessage.slice(0, 4000) }] : []);
+
+  if (!formattedMessages.length) {
+    return res.status(400).json({ error: '請先輸入想和懂妳說的內容。' });
+  }
 
   try {
     // 驗證 OpenRouter API 密鑰
@@ -61,8 +79,6 @@ app.post('/api/chat', async (req, res) => {
     if (!openrouterApiKey) {
       throw new Error('OPENROUTER_API_KEY environment variable is not set');
     }
-
-    let formattedMessages = messages ? messages.map(msg => ({ role: msg.role === 'user' ? 'user' : 'assistant', content: msg.content })) : [{ role: 'user', content: message }];
 
     const [{ content: systemPrompt }, { content: chatPrompt }] = await Promise.all([
       getPromptContentByType('system', { preferredId: process.env.OPENROUTER_SYSTEM_PROMPT_ID }),
@@ -91,6 +107,10 @@ app.post('/api/chat', async (req, res) => {
       const errText = await response.text();
       throw new Error(`OpenRouter 拒絕連線: ${errText}`);
     }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
     const reader = response.body?.getReader();
     if (!reader) {
@@ -129,17 +149,39 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
+    const flushed = decoder.decode();
+    if (flushed) {
+      buffer += flushed;
+    }
+
+    const tailLine = buffer.trim();
+    if (tailLine.startsWith('data: ')) {
+      const dataStr = tailLine.slice(6).trim();
+      if (dataStr !== '[DONE]') {
+        try {
+          const parsed = JSON.parse(dataStr);
+          const text = parsed.choices?.[0]?.delta?.content || '';
+          if (text) {
+            res.write(`data: ${JSON.stringify({ text })}\n\n`);
+          }
+        } catch {
+          // Ignore malformed tail chunk.
+        }
+      }
+    }
+
     res.end();
 
   } catch (error) {
     console.error(error);
-    res.write(`data: ${JSON.stringify({ error: 'Claude連線失敗', details: error.message })}\n\n`);
+    const details = error instanceof Error && error.message ? error.message : '未知錯誤';
+    res.write(`data: ${JSON.stringify({ error: '懂妳暫時無法回應，請稍後再試。', details })}\n\n`);
     res.end();
   }
 });
 
 app.post('/api/chat-title', async (req, res) => {
-  const envValidation = validateServerEnv();
+  const envValidation = validateChatEnv();
   if (!envValidation.ok) {
     logEnvValidation(envValidation, '[server-chat-title]');
     const envError = getPublicEnvError(envValidation);

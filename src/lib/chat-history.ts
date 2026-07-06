@@ -220,7 +220,11 @@ function readStore(userId: string, seedMessages: ChatMessage[]): { store: UserCo
 }
 
 function writeStore(userId: string, store: UserConversationStore): void {
-  localStorage.setItem(historyKey(userId), JSON.stringify(store));
+  try {
+    localStorage.setItem(historyKey(userId), JSON.stringify(store));
+  } catch {
+    // Ignore storage write failures (quota/private mode) to keep chat usable.
+  }
 }
 
 function toSummary(conversation: ConversationRecord, activeConversationId: string): ConversationSummary {

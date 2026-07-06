@@ -112,10 +112,16 @@ function App() {
   const [notice, setNotice] = useState('');
   const googleLoginEnabled = isSupabaseConfigured && Boolean(supabase) && clientEnvValidation.ok;
 
+  const messageListRef = useRef(null);
   const chatEndRef = useRef(null);
-  const latestAssistantRef = useRef(null);
   const messageCountRef = useRef(messages.length);
   const isMockSession = isLocalTestSession(accessToken);
+
+  const scrollToBottom = useCallback((behavior = 'smooth') => {
+    const list = messageListRef.current;
+    if (!list) return;
+    list.scrollTo({ top: list.scrollHeight, behavior });
+  }, []);
 
   const activateLocalTestLogin = useCallback(() => {
     const session = createLocalTestSession();
@@ -273,20 +279,15 @@ function App() {
 
   useEffect(() => {
     if (messages.length !== messageCountRef.current) {
-      const lastMessage = messages[messages.length - 1];
       messageCountRef.current = messages.length;
-      if (lastMessage?.role === 'assistant') {
-        latestAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }
+      scrollToBottom('smooth');
     }
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   useEffect(() => {
     if (!isLoading) return;
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages, isLoading]);
+    scrollToBottom('smooth');
+  }, [messages, isLoading, scrollToBottom]);
 
   const handleGoogleLogin = async () => {
     if (!googleLoginEnabled) {
@@ -392,7 +393,7 @@ function App() {
 
   return (
     <div className="dongni-ocean-page">
-      <div className="dongni-chat-frame">
+      <div className="dongni-chat-frame dongni-chat-frame-simple">
         <div className="dongni-chat-nav">
           <div className="dongni-nav-button" aria-hidden="true">已登入</div>
           <div className="dongni-chat-title">【懂 妳】</div>
@@ -412,6 +413,7 @@ function App() {
         ) : null}
 
         <div
+          ref={messageListRef}
           className={`dongni-message-list scrollbar-none ${
             messages.length === 1
               ? 'dongni-message-list-centered'
@@ -426,7 +428,6 @@ function App() {
                 </div>
               ) : (
                 <div
-                  ref={idx === messages.length - 1 ? latestAssistantRef : null}
                   className="dongni-ai-message animate-fade-in"
                 >
                   {msg.content || (isLoading && idx === messages.length - 1 ? (

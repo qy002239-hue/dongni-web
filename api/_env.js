@@ -21,6 +21,21 @@ const REQUIRED_SERVER_ENV_GROUPS = [
   }
 ];
 
+const REQUIRED_CHAT_ENV_GROUPS = [
+  {
+    label: 'OpenRouter API Key',
+    keys: ['OPENROUTER_API_KEY']
+  },
+  {
+    label: 'Supabase URL',
+    keys: ['SUPABASE_URL']
+  },
+  {
+    label: 'Supabase Admin Key',
+    keys: ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY']
+  }
+];
+
 function hasValue(key) {
   return String(process.env[key] || '').trim().length > 0;
 }
@@ -29,6 +44,23 @@ export function validateServerEnv() {
   const missing = [];
 
   for (const group of REQUIRED_SERVER_ENV_GROUPS) {
+    const matched = group.keys.some(hasValue);
+    if (!matched) {
+      missing.push(group);
+    }
+  }
+
+  return {
+    ok: missing.length === 0,
+    missing,
+    isProduction: process.env.NODE_ENV === 'production'
+  };
+}
+
+export function validateChatEnv() {
+  const missing = [];
+
+  for (const group of REQUIRED_CHAT_ENV_GROUPS) {
     const matched = group.keys.some(hasValue);
     if (!matched) {
       missing.push(group);

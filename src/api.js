@@ -28,6 +28,22 @@ function localSession() {
   };
 }
 
+function createHttpError(status, message, fallback) {
+  const safeStatus = Number(status) || 0;
+  const raw = String(message || '').trim();
+  const fallbackText = String(fallback || '無法開始對話，請稍後再試。').trim();
+
+  // Only 402 should carry Plus/credits semantics.
+  const finalMessage = safeStatus === 402
+    ? (raw || '妳的 Plus 次數已用完，請先購買次數。')
+    : (raw && !/(plus|credit|次數)/i.test(raw) ? raw : fallbackText);
+
+  const error = new Error(finalMessage);
+  error.status = safeStatus;
+  error.isPaymentRequired = safeStatus === 402;
+  return error;
+}
+
 export async function sendMessageToServer(messages, onChunk, memory = '', accessToken = '') {
   if (isLocalE2E(accessToken)) {
     const reply = '嗯……我有聽見。妳不用急著把它說清楚。';
@@ -126,7 +142,13 @@ export async function fetchConversationSession(accessToken = '') {
   });
 
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Unable to fetch conversation session.');
+  if (!response.ok) {
+    throw createHttpError(
+      response.status,
+      data.error,
+      '無法確認對話狀態，請稍後再試。'
+    );
+  }
   return data;
 }
 
@@ -143,7 +165,13 @@ export async function startConversationSession(accessToken = '') {
   });
 
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Unable to start conversation session.');
+  if (!response.ok) {
+    throw createHttpError(
+      response.status,
+      data.error,
+      '無法開始對話，請稍後再試。'
+    );
+  }
   return data;
 }
 

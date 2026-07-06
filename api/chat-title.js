@@ -1,9 +1,30 @@
 import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
 import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
-import { getPublicEnvError, logEnvValidation, validateServerEnv } from './_env.js';
+import { getPublicEnvError, logEnvValidation, validateChatEnv } from './_env.js';
 import { getPromptContentByType } from './_prompt-manager.js';
 
 export const config = { runtime: 'nodejs' };
+
+function resolveAllowedOrigin(req) {
+  const requestOrigin = String(req.headers.origin || '').trim();
+  const configured = [process.env.PUBLIC_SITE_URL, process.env.APP_URL]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+
+  if (!requestOrigin) return configured[0] || '';
+  if (!configured.length) return requestOrigin;
+  return configured.includes(requestOrigin) ? requestOrigin : configured[0];
+}
+
+function applyCorsHeaders(req, res) {
+  const origin = resolveAllowedOrigin(req);
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
 
 function sanitizeMessages(messages) {
   if (!Array.isArray(messages)) return [];
@@ -32,26 +53,18 @@ function normalizeTitle(rawTitle) {
   return cleaned;
 }
 
-async function getActiveSession(supabase, userId) {
-  const { data, error } = await supabase
-    .from('dongni_conversation_sessions')
-    .select('expires_at')
-    .eq('user_id', userId)
-    .gt('expires_at', new Date().toISOString())
-    .order('expires_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
-}
-
 export default async function handler(req, res) {
+  applyCorsHeaders(req, res);
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   if (req.method !== 'POST') {
     return methodNotAllowed(res, 'POST');
   }
 
-  const envValidation = validateServerEnv();
+  const envValidation = validateChatEnv();
   if (!envValidation.ok) {
     logEnvValidation(envValidation, '[chat-title]');
     const envError = getPublicEnvError(envValidation);
@@ -71,12 +84,7 @@ export default async function handler(req, res) {
     });
 
     const supabase = getSupabaseAdmin();
-    const user = await getAuthenticatedUser(req, supabase);
-    const activeSession = await getActiveSession(supabase, user.id);
-
-    if (!activeSession?.expires_at) {
-      return res.status(402).json({ error: '妳的 Plus 次數已用完，請先購買次數。' });
-    }
+    await getAuthenticatedUser(req, supabase);
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -111,7 +119,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ title });
   } catch (error) {
     console.error('chat-title error:', error);
-    const status = error.message?.includes('登入') || error.message?.includes('login') ? 401 : 500;
-    return jsonError(res, status, error.message || '標題產生失敗');
+    const message = error instanceof Error && error.message ? error.message : '標題產生失敗';
+    const status = message.includes('登入') || message.includes('login') ? 401 : 500;
+    return jsonError(res, status, message);
   }
 }

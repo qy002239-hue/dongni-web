@@ -6,7 +6,6 @@ function isLocalE2E(accessToken = ''): boolean {
   return (
     accessToken === localE2EToken
     && ['localhost', '127.0.0.1'].includes(window.location.hostname)
-    && new URLSearchParams(window.location.search).get('e2e') === '1'
   );
 }
 
@@ -145,10 +144,42 @@ export async function sendMessageToServer(
         onChunk(chunk);
       }
 
+      const flushChunk = decoder.decode();
+      if (flushChunk) {
+        fullReply += flushChunk;
+        onChunk(flushChunk);
+      }
+
+      if (!fullReply.trim()) {
+        throw new Error('懂妳暫時沒有收到可用回覆，請重新送出。');
+      }
+
       return fullReply;
     }
 
     let buffer = '';
+
+    const handleSseData = (payload: string) => {
+      if (payload === '[DONE]') return;
+
+      try {
+        const parsed = JSON.parse(payload) as { text?: string; error?: string };
+        if (parsed?.error) {
+          throw new Error(String(parsed.error));
+        }
+
+        const text = String(parsed?.text || '');
+        if (!text) return;
+        fullReply += text;
+        refreshStreamTimeout();
+        onChunk(text);
+      } catch (error) {
+        if (error instanceof Error && error.message.trim()) {
+          throw error;
+        }
+        // Ignore malformed SSE chunks.
+      }
+    };
 
     while (true) {
       const { done, value } = await reader.read();
@@ -161,21 +192,23 @@ export async function sendMessageToServer(
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed.startsWith('data: ')) continue;
-
         const payload = trimmed.slice(6).trim();
-        if (payload === '[DONE]') continue;
-
-        try {
-          const parsed = JSON.parse(payload) as { text?: string };
-          const text = String(parsed?.text || '');
-          if (!text) continue;
-          fullReply += text;
-          refreshStreamTimeout();
-          onChunk(text);
-        } catch {
-          // Ignore malformed SSE chunks.
-        }
+        handleSseData(payload);
       }
+    }
+
+    const flushChunk = decoder.decode();
+    if (flushChunk) {
+      buffer += flushChunk;
+    }
+
+    const finalLine = buffer.trim();
+    if (finalLine.startsWith('data: ')) {
+      handleSseData(finalLine.slice(6).trim());
+    }
+
+    if (!fullReply.trim()) {
+      throw new Error('懂妳暫時沒有收到可用回覆，請重新送出。');
     }
 
     return fullReply;
