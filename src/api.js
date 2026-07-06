@@ -51,6 +51,33 @@ function createDetailedHttpError(status, message, fallback, responseBody = null,
   return error;
 }
 
+async function parseApiResponse(response, apiName) {
+  const rawText = await response.text();
+  const trimmed = String(rawText || '').trim();
+
+  if (!trimmed) {
+    return {
+      data: null,
+      rawText: ''
+    };
+  }
+
+  try {
+    return {
+      data: JSON.parse(trimmed),
+      rawText: trimmed
+    };
+  } catch {
+    throw createDetailedHttpError(
+      response.status,
+      `${apiName} 回傳非 JSON 內容，請稍後再試。`,
+      `${apiName} 回傳非 JSON 內容，請稍後再試。`,
+      trimmed,
+      null
+    );
+  }
+}
+
 export async function sendMessageToServer(messages, onChunk, memory = '', accessToken = '') {
   if (isLocalE2E(accessToken)) {
     const reply = '嗯……我有聽見。妳不用急著把它說清楚。';
@@ -74,14 +101,10 @@ export async function sendMessageToServer(messages, onChunk, memory = '', access
     let errorMessage = 'API error';
     let responseError = null;
     let responseBody = null;
-    try {
-      const data = await response.json();
-      responseBody = data;
-      responseError = data?.error ?? null;
-      errorMessage = data.error || errorMessage;
-    } catch {
-      errorMessage = 'API error';
-    }
+    const parsed = await parseApiResponse(response, '/api/chat');
+    responseBody = parsed.data ?? parsed.rawText;
+    responseError = parsed.data?.error ?? null;
+    errorMessage = parsed.data?.error || parsed.rawText || errorMessage;
 
     throw createDetailedHttpError(
       response.status,
@@ -159,17 +182,18 @@ export async function fetchConversationSession(accessToken = '') {
     }
   });
 
-  const data = await response.json();
+  const parsed = await parseApiResponse(response, '/api/conversation-session');
+  const data = parsed.data;
   if (!response.ok) {
     throw createDetailedHttpError(
       response.status,
-      data.error,
+      data?.error || parsed.rawText || `無法確認對話狀態（HTTP ${response.status}）`,
       '無法確認對話狀態，請稍後再試。',
-      data,
+      data ?? parsed.rawText,
       data?.error ?? null
     );
   }
-  return data;
+  return data || {};
 }
 
 export async function startConversationSession(accessToken = '') {
@@ -184,17 +208,18 @@ export async function startConversationSession(accessToken = '') {
     }
   });
 
-  const data = await response.json();
+  const parsed = await parseApiResponse(response, '/api/conversation-session');
+  const data = parsed.data;
   if (!response.ok) {
     throw createDetailedHttpError(
       response.status,
-      data.error,
+      data?.error || parsed.rawText || `無法開始對話（HTTP ${response.status}）`,
       '無法開始對話，請稍後再試。',
-      data,
+      data ?? parsed.rawText,
       data?.error ?? null
     );
   }
-  return data;
+  return data || {};
 }
 
 export async function capturePayPalOrder(orderId, accessToken = '') {
@@ -215,7 +240,8 @@ export async function capturePayPalOrder(orderId, accessToken = '') {
     body: JSON.stringify({ orderId })
   });
 
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Unable to confirm PayPal payment.');
-  return data;
+  const parsed = await parseApiResponse(response, '/api/paypal-capture-order');
+  const data = parsed.data;
+  if (!response.ok) throw new Error(data?.error || parsed.rawText || 'Unable to confirm PayPal payment.');
+  return data || {};
 }
