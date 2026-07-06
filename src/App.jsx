@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { sendMessageToServer } from './api';
+import { sendMessageToServer, startConversationSession } from './api';
 import { validateClientEnv } from './lib/env';
 import { isSupabaseConfigured, supabase } from './supabase';
 import './App.css';
@@ -115,7 +115,49 @@ function App() {
   const messageListRef = useRef(null);
   const chatEndRef = useRef(null);
   const messageCountRef = useRef(messages.length);
+  const firstEnterDebugLoggedRef = useRef(false);
+  const enterTriggerRef = useRef(false);
   const isMockSession = isLocalTestSession(accessToken);
+
+  const logReturnReason = useCallback((ifName, context = {}) => {
+    console.error('[CHAT DEBUG RETURN]', ifName, context);
+  }, []);
+
+  const logPlusNavigate = useCallback((context = {}) => {
+    console.error("[CHAT DEBUG] navigate('/plus') 呼叫位置", {
+      location: 'src/App.jsx:handleSubmit/catch',
+      ...context
+    });
+  }, []);
+
+  const ge = useCallback((reason, context = {}) => {
+    console.error('[CHAT DEBUG] ge() called', {
+      location: 'src/App.jsx:ge',
+      reason,
+      ...context
+    });
+    logPlusNavigate({ reason, ...context });
+    navigate(withE2E('/plus'));
+  }, [logPlusNavigate, navigate]);
+
+  const printChatDebug = useCallback((payload) => {
+    console.error('========== CHAT DEBUG ==========');
+    console.error('user.id', payload.userId ?? null);
+    console.error('session.id', payload.sessionId ?? null);
+    console.error('conversationSession', payload.conversationSession ?? null);
+    console.error('credits', payload.credits ?? null);
+    console.error('trialDaysRemaining', payload.trialDaysRemaining ?? null);
+    console.error('subscription', payload.subscription ?? null);
+    console.error('canChat', payload.canChat ?? null);
+    console.error('HTTP Status', payload.httpStatus ?? null);
+    console.error('Response Body', payload.responseBody ?? null);
+    console.error('response.error', payload.responseError ?? null);
+    console.error('error.message', payload.errorMessage ?? null);
+    console.error('willRedirectToPlus', payload.willRedirectToPlus ?? false);
+    console.error('redirectReason', payload.redirectReason ?? '');
+    console.error("navigate('/plus') 呼叫位置", payload.navigatePlusCallsite ?? '');
+    console.error('========== END ==========');
+  }, []);
 
   const scrollToBottom = useCallback((behavior = 'smooth') => {
     const list = messageListRef.current;
@@ -318,7 +360,41 @@ function App() {
 
   const handleSubmit = async (event) => {
     event?.preventDefault();
-    if (!input.trim() || isLoading || activeStreamRef.current) return;
+
+    const isFirstEnter = enterTriggerRef.current && !firstEnterDebugLoggedRef.current;
+    enterTriggerRef.current = false;
+    const trimmedInput = input.trim();
+    const debugPayload = {
+      userId: user?.id || null,
+      sessionId: null,
+      conversationSession: null,
+      credits: null,
+      trialDaysRemaining: null,
+      subscription: null,
+      canChat: null,
+      httpStatus: null,
+      responseBody: null,
+      responseError: null,
+      errorMessage: null,
+      willRedirectToPlus: false,
+      redirectReason: '',
+      navigatePlusCallsite: 'src/App.jsx:handleSubmit/catch -> ge() -> navigate(withE2E(\'/plus\'))'
+    };
+
+    if (!trimmedInput || isLoading || activeStreamRef.current) {
+      logReturnReason('if (!trimmedInput || isLoading || activeStreamRef.current)', {
+        trimmedInput,
+        isLoading,
+        activeStream: activeStreamRef.current
+      });
+      if (isFirstEnter) {
+        debugPayload.errorMessage = 'submit blocked by early return condition';
+        firstEnterDebugLoggedRef.current = true;
+        printChatDebug(debugPayload);
+      }
+      return;
+    }
+
     activeStreamRef.current = true;
 
     const userMessage = { role: 'user', content: input };
@@ -330,6 +406,16 @@ function App() {
     setIsLoading(true);
 
     try {
+      const conversationSession = await startConversationSession(accessToken);
+      debugPayload.conversationSession = conversationSession;
+      debugPayload.sessionId = conversationSession?.id || conversationSession?.sessionId || null;
+      debugPayload.credits = conversationSession?.credits ?? null;
+      debugPayload.trialDaysRemaining = conversationSession?.trialDaysRemaining ?? null;
+      debugPayload.subscription = conversationSession?.subscription ?? null;
+      debugPayload.canChat = conversationSession?.canChat ?? null;
+      debugPayload.httpStatus = 200;
+      debugPayload.responseBody = conversationSession;
+
       await sendMessageToServer(newMessages, (chunk) => {
         setMessages((prev) => prev.map((message, index) => (
           index === aiMessageIndex
@@ -339,6 +425,28 @@ function App() {
       }, '', accessToken);
     } catch (error) {
       console.error(error);
+      debugPayload.httpStatus = error?.status ?? debugPayload.httpStatus;
+      debugPayload.responseBody = error?.responseBody ?? debugPayload.responseBody;
+      debugPayload.responseError = error?.responseError ?? null;
+      debugPayload.errorMessage = error?.message || '回覆失敗，請稍後再試。';
+
+      const plusByStatus = Number(error?.status) === 402;
+      const plusByMessage = /(plus|credit|次數)/i.test(String(error?.message || error?.responseError || ''));
+      const willRedirectToPlus = plusByStatus || plusByMessage;
+
+      debugPayload.willRedirectToPlus = willRedirectToPlus;
+      debugPayload.redirectReason = plusByStatus
+        ? 'status===402'
+        : (plusByMessage ? 'error.message/response.error contains plus|credit|次數' : 'none');
+
+      if (willRedirectToPlus) {
+        ge(debugPayload.redirectReason, {
+          status: error?.status ?? null,
+          responseError: error?.responseError ?? null,
+          errorMessage: error?.message ?? ''
+        });
+      }
+
       setMessages((prev) => prev.map((message, index) => (
         index === aiMessageIndex
           ? { ...message, content: error.message || '回覆失敗，請稍後再試。' }
@@ -348,14 +456,25 @@ function App() {
     } finally {
       activeStreamRef.current = false;
       setIsLoading(false);
+      if (isFirstEnter) {
+        firstEnterDebugLoggedRef.current = true;
+        printChatDebug(debugPayload);
+      }
     }
   };
 
   const handleInputKeyDown = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
+      enterTriggerRef.current = true;
       handleSubmit();
+      return;
     }
+
+    logReturnReason('if (event.key !== Enter || event.shiftKey)', {
+      key: event.key,
+      shiftKey: event.shiftKey
+    });
   };
 
   if (location.pathname === '/auth/callback' && authLoading) {

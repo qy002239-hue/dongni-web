@@ -44,6 +44,13 @@ function createHttpError(status, message, fallback) {
   return error;
 }
 
+function createDetailedHttpError(status, message, fallback, responseBody = null, responseError = null) {
+  const error = createHttpError(status, message, fallback);
+  error.responseBody = responseBody;
+  error.responseError = responseError;
+  return error;
+}
+
 export async function sendMessageToServer(messages, onChunk, memory = '', accessToken = '') {
   if (isLocalE2E(accessToken)) {
     const reply = '嗯……我有聽見。妳不用急著把它說清楚。';
@@ -65,13 +72,24 @@ export async function sendMessageToServer(messages, onChunk, memory = '', access
 
   if (!response.ok) {
     let errorMessage = 'API error';
+    let responseError = null;
+    let responseBody = null;
     try {
       const data = await response.json();
+      responseBody = data;
+      responseError = data?.error ?? null;
       errorMessage = data.error || errorMessage;
     } catch {
       errorMessage = 'API error';
     }
-    throw new Error(errorMessage);
+
+    throw createDetailedHttpError(
+      response.status,
+      errorMessage,
+      '回覆失敗，請稍後再試。',
+      responseBody,
+      responseError
+    );
   }
 
   if (!response.body) {
@@ -143,10 +161,12 @@ export async function fetchConversationSession(accessToken = '') {
 
   const data = await response.json();
   if (!response.ok) {
-    throw createHttpError(
+    throw createDetailedHttpError(
       response.status,
       data.error,
-      '無法確認對話狀態，請稍後再試。'
+      '無法確認對話狀態，請稍後再試。',
+      data,
+      data?.error ?? null
     );
   }
   return data;
@@ -166,10 +186,12 @@ export async function startConversationSession(accessToken = '') {
 
   const data = await response.json();
   if (!response.ok) {
-    throw createHttpError(
+    throw createDetailedHttpError(
       response.status,
       data.error,
-      '無法開始對話，請稍後再試。'
+      '無法開始對話，請稍後再試。',
+      data,
+      data?.error ?? null
     );
   }
   return data;

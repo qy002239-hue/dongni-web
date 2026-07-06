@@ -64,6 +64,8 @@ function App() {
   const titleGenerationInFlightRef = useRef(new Set<string>());
   const titleRetryTimersRef = useRef(new Map<string, number>());
   const lastSubmittedRef = useRef<{ content: string; at: number }>({ content: '', at: 0 });
+  const firstEnterDebugLoggedRef = useRef(false);
+  const enterTriggeredRef = useRef(false);
   const [composerHeight, setComposerHeight] = useState(176);
   const userId = user?.id || '';
 
@@ -73,6 +75,29 @@ function App() {
     '--composer-height': `${composerHeight}px`,
     paddingBottom: 'calc(var(--composer-height) + 28px)'
   };
+
+  const logReturnReason = useCallback((ifName: string, context: Record<string, unknown> = {}) => {
+    console.error('[CHAT DEBUG RETURN]', ifName, context);
+  }, []);
+
+  const printChatDebug = useCallback((payload: Record<string, unknown>) => {
+    console.error('========== CHAT DEBUG ==========');
+    console.error('user.id', payload.userId ?? null);
+    console.error('session.id', payload.sessionId ?? null);
+    console.error('conversationSession', payload.conversationSession ?? null);
+    console.error('credits', payload.credits ?? null);
+    console.error('trialDaysRemaining', payload.trialDaysRemaining ?? null);
+    console.error('subscription', payload.subscription ?? null);
+    console.error('canChat', payload.canChat ?? null);
+    console.error('HTTP Status', payload.httpStatus ?? null);
+    console.error('Response Body', payload.responseBody ?? null);
+    console.error('response.error', payload.responseError ?? null);
+    console.error('error.message', payload.errorMessage ?? null);
+    console.error('willRedirectToPlus', payload.willRedirectToPlus ?? false);
+    console.error('redirectReason', payload.redirectReason ?? '');
+    console.error("navigate('/plus') 呼叫位置", payload.navigatePlusCallsite ?? '');
+    console.error('========== END ==========');
+  }, []);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const container = messageListRef.current;
@@ -493,11 +518,48 @@ function App() {
     const rawInput = input;
     const trimmedInput = rawInput.trim();
     const normalizedInput = trimmedInput.replace(/\s+/g, ' ');
+    const isFirstEnter = enterTriggeredRef.current && !firstEnterDebugLoggedRef.current;
+    enterTriggeredRef.current = false;
 
-    if (!trimmedInput || isSubmitting || activeStreamRef.current) return;
+    const debugPayload: Record<string, unknown> = {
+      userId: user?.id || null,
+      sessionId: null,
+      conversationSession: null,
+      credits: null,
+      trialDaysRemaining: null,
+      subscription: null,
+      canChat: null,
+      httpStatus: null,
+      responseBody: null,
+      responseError: null,
+      errorMessage: null,
+      willRedirectToPlus: false,
+      redirectReason: '',
+      navigatePlusCallsite: 'not called in src/App.tsx submit path'
+    };
+
+    if (!trimmedInput || isSubmitting || activeStreamRef.current) {
+      logReturnReason('if (!trimmedInput || isSubmitting || activeStreamRef.current)', {
+        trimmedInput,
+        isSubmitting,
+        activeStream: activeStreamRef.current
+      });
+      if (isFirstEnter) {
+        debugPayload.errorMessage = 'submit blocked by early return condition';
+        firstEnterDebugLoggedRef.current = true;
+        printChatDebug(debugPayload);
+      }
+      return;
+    }
 
     if (!navigator.onLine) {
+      logReturnReason('if (!navigator.onLine)', {});
       showToast('目前無法連線，請稍後再試');
+      if (isFirstEnter) {
+        debugPayload.errorMessage = 'offline';
+        firstEnterDebugLoggedRef.current = true;
+        printChatDebug(debugPayload);
+      }
       return;
     }
 
@@ -507,7 +569,18 @@ function App() {
       && now - lastSubmittedRef.current.at < 10_000;
 
     if (justSubmittedSame) {
+      logReturnReason('if (justSubmittedSame)', {
+        normalizedInput,
+        lastContent: lastSubmittedRef.current.content,
+        lastAt: lastSubmittedRef.current.at,
+        now
+      });
       showToast('請勿重複送出相同訊息。');
+      if (isFirstEnter) {
+        debugPayload.errorMessage = 'duplicate submit blocked';
+        firstEnterDebugLoggedRef.current = true;
+        printChatDebug(debugPayload);
+      }
       return;
     }
 
@@ -529,6 +602,49 @@ function App() {
     setInput('');
 
     try {
+      if (isFirstEnter) {
+        const sessionResponse = await fetch('/api/conversation-session', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        });
+
+        let responseBody: unknown = null;
+        let responseError: string | null = null;
+        try {
+          responseBody = await sessionResponse.json();
+          responseError = (responseBody as { error?: string })?.error ?? null;
+        } catch {
+          responseBody = null;
+          responseError = null;
+        }
+
+        const sessionLike = (responseBody && typeof responseBody === 'object')
+          ? responseBody as Record<string, unknown>
+          : {};
+
+        debugPayload.httpStatus = sessionResponse.status;
+        debugPayload.responseBody = responseBody;
+        debugPayload.responseError = responseError;
+        debugPayload.conversationSession = responseBody;
+        debugPayload.sessionId = sessionLike.id ?? sessionLike.sessionId ?? null;
+        debugPayload.credits = sessionLike.credits ?? null;
+        debugPayload.trialDaysRemaining = sessionLike.trialDaysRemaining ?? null;
+        debugPayload.subscription = sessionLike.subscription ?? null;
+        debugPayload.canChat = sessionLike.canChat ?? null;
+
+        if (sessionResponse.status === 402) {
+          debugPayload.willRedirectToPlus = true;
+          debugPayload.redirectReason = 'conversation-session status===402';
+          debugPayload.navigatePlusCallsite = 'src/App.tsx:submit -> conversation-session status===402 branch';
+          console.error("[CHAT DEBUG] navigate('/plus') 呼叫位置", {
+            location: 'src/App.tsx:submit',
+            reason: 'conversation-session status===402'
+          });
+        }
+      }
+
       await sendMessageToServer(nextMessages, (chunk) => {
         setMessages((prev) => prev.map((message, index) => (
           activeConversationIdRef.current === streamConversationId && index === aiIndex
@@ -542,12 +658,51 @@ function App() {
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
+        logReturnReason('if (error instanceof DOMException && error.name === AbortError)', {});
+        if (isFirstEnter) {
+          debugPayload.errorMessage = 'AbortError';
+        }
         return;
       }
 
       lastSubmittedRef.current = { content: '', at: 0 };
 
       let friendly = toErrorMessage(error, '回覆失敗，請稍後再試。');
+      const richError = error as Error & {
+        status?: number;
+        responseBody?: unknown;
+        responseError?: string | null;
+      };
+
+      debugPayload.httpStatus = richError.status ?? debugPayload.httpStatus;
+      debugPayload.responseBody = richError.responseBody ?? debugPayload.responseBody;
+      debugPayload.responseError = richError.responseError ?? debugPayload.responseError;
+      debugPayload.errorMessage = richError.message || friendly;
+
+      const plusByStatus = Number(richError.status) === 402;
+      const plusByMessage = /(plus|credit|次數)/i.test(String(richError.message || richError.responseError || ''));
+      debugPayload.willRedirectToPlus = plusByStatus || plusByMessage;
+      debugPayload.redirectReason = plusByStatus
+        ? 'status===402'
+        : (plusByMessage ? 'error.message/response.error contains plus|credit|次數' : 'none');
+
+      if (debugPayload.willRedirectToPlus) {
+        debugPayload.navigatePlusCallsite = 'src/App.tsx:submit/catch plus branch';
+        console.error('[CHAT DEBUG] ge() called', {
+          location: 'src/App.tsx:submit/catch',
+          reason: debugPayload.redirectReason
+        });
+        console.error("[CHAT DEBUG] navigate('/plus') 呼叫位置", {
+          location: 'src/App.tsx:submit/catch',
+          reason: debugPayload.redirectReason
+        });
+        console.error("[CHAT DEBUG] router.push('/plus') 呼叫位置", {
+          location: 'src/App.tsx:submit/catch',
+          reason: debugPayload.redirectReason,
+          note: 'react-router-dom does not use router.push in this file'
+        });
+      }
+
       if (!navigator.onLine) {
         friendly = '目前無法連線，請稍後再試';
       } else if (friendly.includes('30 秒內沒有收到回覆')) {
@@ -573,15 +728,32 @@ function App() {
       activeStreamRef.current = false;
       setIsSubmitting(false);
       scrollToBottom('smooth');
+      if (isFirstEnter) {
+        firstEnterDebugLoggedRef.current = true;
+        printChatDebug(debugPayload);
+      }
     }
   };
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      if (isSubmitting || activeStreamRef.current) return;
+      enterTriggeredRef.current = true;
+      if (isSubmitting || activeStreamRef.current) {
+        logReturnReason('if (isSubmitting || activeStreamRef.current) in onInputKeyDown', {
+          isSubmitting,
+          activeStream: activeStreamRef.current
+        });
+        return;
+      }
       void submit();
+      return;
     }
+
+    logReturnReason('if (event.key !== Enter || event.shiftKey) in onInputKeyDown', {
+      key: event.key,
+      shiftKey: event.shiftKey
+    });
   };
 
   if (location.pathname === ROUTES.authCallback && authLoading) {
