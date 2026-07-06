@@ -17,19 +17,42 @@ interface HttpError extends Error {
   responseError?: string | null;
 }
 
+async function parseHttpResponseText(response: Response): Promise<{
+  data: { error?: string } | null;
+  text: string;
+}> {
+  const text = await response.text();
+  const trimmed = String(text || '').trim();
+
+  if (!trimmed) {
+    return { data: null, text: '' };
+  }
+
+  try {
+    return {
+      data: JSON.parse(trimmed) as { error?: string },
+      text: trimmed
+    };
+  } catch {
+    return {
+      data: null,
+      text: trimmed
+    };
+  }
+}
+
 export async function requestText(path: string, init: RequestInit): Promise<Response> {
   const response = await fetch(resolveApiUrl(path), init);
   if (!response.ok) {
-    let message = 'API error';
-    let responseBody: unknown = null;
-    let responseError: string | null = null;
-    try {
-      const data = await response.json() as { error?: string };
-      responseBody = data;
-      responseError = data?.error ?? null;
-      message = data.error || message;
-    } catch {
-      message = 'API error';
+    const parsed = await parseHttpResponseText(response);
+    const responseBody = parsed.data ?? parsed.text;
+    const responseError = parsed.data?.error ?? null;
+
+    let message = parsed.data?.error || 'API error';
+    if (!parsed.text) {
+      message = `${path} returned empty response body (status ${response.status}).`;
+    } else if (!parsed.data) {
+      message = `${path} returned non-JSON response (status ${response.status}): ${parsed.text.slice(0, 300)}`;
     }
 
     const error = new Error(message) as HttpError;
