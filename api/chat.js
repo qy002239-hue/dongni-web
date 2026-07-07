@@ -2,6 +2,7 @@ import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
 import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
 import { getPublicEnvError, logEnvValidation, validateChatEnv } from './_env.js';
 import { buildChatSystemPrompt } from './_chat-prompt.js';
+import { getUserMemoryContext, updateUserMemoryFromConversation } from './_memory.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -66,11 +67,12 @@ export default async function handler(req, res) {
 
   try {
     const supabase = getSupabaseAdmin();
-    await getAuthenticatedUser(req, supabase);
+    const user = await getAuthenticatedUser(req, supabase);
     const promptBuild = await buildChatSystemPrompt();
     if (!promptBuild.exactMatch) {
       return jsonError(res, 500, 'System prompt mismatch detected.');
     }
+    const memoryContext = await getUserMemoryContext(supabase, user.id);
 
     console.error('========== CHAT PROMPT DEBUG ==========');
     console.error('promptFilePath', promptBuild.promptFilePath);
@@ -92,6 +94,7 @@ export default async function handler(req, res) {
         model: process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4-5',
         messages: [
           { role: 'system', content: promptBuild.finalSystemPrompt },
+          ...(memoryContext ? [{ role: 'system', content: memoryContext }] : []),
           ...messages
         ],
         max_tokens: 1800,
@@ -114,6 +117,7 @@ export default async function handler(req, res) {
     const reader = openRouterResponse.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let assistantReply = '';
 
     while (true) {
       const { done, value } = await reader.read();
@@ -133,12 +137,22 @@ export default async function handler(req, res) {
         try {
           const parsed = JSON.parse(data);
           const content = parsed.choices?.[0]?.delta?.content || '';
-          if (content) res.write(content);
+          if (content) {
+            assistantReply += content;
+            res.write(content);
+          }
         } catch (error) {
           console.error('SSE parse error:', error);
         }
       }
     }
+
+    await updateUserMemoryFromConversation(
+      supabase,
+      user.id,
+      messages,
+      assistantReply
+    );
 
     return res.end();
   } catch (error) {

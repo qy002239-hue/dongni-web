@@ -40,6 +40,8 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
   }
 ];
 
+const welcomeConsentKey = 'dongni_welcome_disclaimer_ack';
+
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -54,6 +56,7 @@ function App() {
   const [conversationList, setConversationList] = useState<ConversationSummary[]>([]);
   const [input, setInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [welcomeConfirmed, setWelcomeConfirmed] = useState(false);
 
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -185,6 +188,14 @@ function App() {
       window.removeEventListener('offline', onOffline);
     };
   }, [showToast]);
+
+  useEffect(() => {
+    try {
+      setWelcomeConfirmed(window.localStorage.getItem(welcomeConsentKey) === '1');
+    } catch {
+      setWelcomeConfirmed(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (location.pathname === ROUTES.authCallback || location.pathname === ROUTES.testLogin) {
@@ -512,6 +523,20 @@ function App() {
     showToast('Google 登入暫時無法開啟，請稍後再試。');
   };
 
+  const onToggleWelcomeConfirmed = () => {
+    const nextValue = !welcomeConfirmed;
+    setWelcomeConfirmed(nextValue);
+    try {
+      if (nextValue) {
+        window.localStorage.setItem(welcomeConsentKey, '1');
+      } else {
+        window.localStorage.removeItem(welcomeConsentKey);
+      }
+    } catch {
+      // Ignore storage write errors in restricted browsers.
+    }
+  };
+
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
 
@@ -766,19 +791,62 @@ function App() {
 
   if (!user) {
     return (
-      <main className="auth-screen">
-        <section className="auth-panel">
-          <h1>進入懂妳</h1>
-          <p>使用 Google 登入後，就能開始一段安靜、私密的對話。</p>
-          {toast.visible ? <p role="alert">{toast.message}</p> : null}
+      <main className="welcome-screen">
+        <section className="welcome-panel">
+          <p className="welcome-kicker">懂妳・情緒陪伴空間</p>
+          <h1>先讓心，慢慢落地。</h1>
+          <p className="welcome-subtitle">
+            這裡不是諮商，也不會替妳做人生決定。
+            <br />
+            這裡只是陪妳，把混亂說成一句句可以呼吸的話。
+          </p>
+
+          <div className="welcome-highlights" role="list" aria-label="Welcome highlights">
+            <article className="welcome-card" role="listitem">
+              <h2>安靜回覆</h2>
+              <p>不用整理好才來，想到哪裡就說到哪裡。</p>
+            </article>
+            <article className="welcome-card" role="listitem">
+              <h2>私密對話</h2>
+              <p>登入後進入妳專屬的對話記錄與節奏。</p>
+            </article>
+            <article className="welcome-card" role="listitem">
+              <h2>有限陪伴</h2>
+              <p>30 分鐘無輸入會結束，避免長時間失焦。</p>
+            </article>
+          </div>
+
+          <div className="welcome-disclaimer">
+            <p className="welcome-disclaimer-title">使用前提醒</p>
+            <p>
+              懂妳提供情緒陪伴，不取代專業醫療或心理治療。
+              若妳正處於緊急危險或有自傷風險，請立即聯絡當地緊急服務。
+            </p>
+            <label className="welcome-consent" htmlFor="welcome-consent-checkbox">
+              <input
+                id="welcome-consent-checkbox"
+                type="checkbox"
+                checked={welcomeConfirmed}
+                onChange={onToggleWelcomeConfirmed}
+              />
+              <span>我已了解並同意以上提醒。</span>
+            </label>
+          </div>
+
+          {toast.visible ? <p role="alert" className="welcome-alert">{toast.message}</p> : null}
+
           <button
             onClick={loginWithGoogle}
             className="auth-primary"
             type="button"
-            disabled={!googleLoginEnabled}
+            disabled={!googleLoginEnabled || !welcomeConfirmed}
           >
-            {googleLoginEnabled ? '使用 Google 登入' : 'Google 登入尚未啟用'}
+            {googleLoginEnabled ? '同意後，使用 Google 登入' : 'Google 登入尚未啟用'}
           </button>
+          {!welcomeConfirmed ? (
+            <p className="welcome-hint">請先勾選同意提醒，才能開始登入。</p>
+          ) : null}
+
           {isLocalHost() ? (
             <button onClick={activateLocalTestLogin} className="auth-secondary" type="button">
               本機測試登入
