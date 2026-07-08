@@ -98,13 +98,10 @@ export async function sendMessageToServer(messages, onChunk, memory = '', access
   });
 
   if (!response.ok) {
-    let errorMessage = 'API error';
-    let responseError = null;
-    let responseBody = null;
     const parsed = await parseApiResponse(response, '/api/chat');
-    responseBody = parsed.data ?? parsed.rawText;
-    responseError = parsed.data?.error ?? null;
-    errorMessage = parsed.data?.error || parsed.rawText || errorMessage;
+    const responseBody = parsed.data ?? parsed.rawText;
+    const responseError = parsed.data?.error ?? null;
+    const errorMessage = parsed.data?.error || parsed.rawText || 'API error';
 
     throw createDetailedHttpError(
       response.status,
