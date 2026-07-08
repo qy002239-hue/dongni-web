@@ -24,14 +24,13 @@ if (!base || !key) {
   process.exit(1);
 }
 
-const response = await fetch(`${base}/rest/v1/rpc/exec_sql`, {
-  method: 'POST',
+const response = await fetch(`${base}/rest/v1/dongni_user_memory?select=user_id&limit=1`, {
+  method: 'GET',
   headers: {
     'Content-Type': 'application/json',
     apikey: key,
     Authorization: `Bearer ${key}`
-  },
-  body: JSON.stringify({ sql: 'select 1 as ok' })
+  }
 });
 
 const body = await response.text();
