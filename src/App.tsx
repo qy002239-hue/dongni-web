@@ -69,6 +69,7 @@ function App() {
   const lastSubmittedRef = useRef<{ content: string; at: number }>({ content: '', at: 0 });
   const firstEnterDebugLoggedRef = useRef(false);
   const enterTriggeredRef = useRef(false);
+  const paypalProcessingOrdersRef = useRef(new Set<string>());
   const [composerHeight, setComposerHeight] = useState(176);
   const userId = user?.id || '';
 
@@ -206,6 +207,99 @@ function App() {
       navigate(withE2E(ROUTES.chat), { replace: true });
     }
   }, [location.pathname, navigate]);
+
+  useEffect(() => {
+    if (location.pathname !== ROUTES.chat) return;
+
+    const params = new URLSearchParams(location.search);
+    const paymentStatus = String(params.get('payment') || '').trim().toLowerCase();
+    if (!paymentStatus) return;
+
+    const clearPaymentQuery = () => {
+      navigate(withE2E(ROUTES.chat), { replace: true });
+    };
+
+    if (paymentStatus === 'paypal-cancel') {
+      showToast('已取消 PayPal 付款。');
+      clearPaymentQuery();
+      return;
+    }
+
+    if (paymentStatus === 'paypal-failed') {
+      showToast('PayPal 付款未完成，請再試一次。');
+      clearPaymentQuery();
+      return;
+    }
+
+    if (paymentStatus !== 'paypal-success') {
+      clearPaymentQuery();
+      return;
+    }
+
+    if (!accessToken) return;
+
+    const orderId = String(params.get('token') || params.get('orderId') || '').trim();
+    if (!orderId) {
+      showToast('付款返回缺少 PayPal 訂單資訊，請重新付款。');
+      clearPaymentQuery();
+      return;
+    }
+
+    if (paypalProcessingOrdersRef.current.has(orderId)) {
+      return;
+    }
+
+    paypalProcessingOrdersRef.current.add(orderId);
+
+    const processPayment = async () => {
+      try {
+        const response = await fetch('/api/paypal-capture-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({ orderId })
+        });
+
+        const raw = await response.text();
+        let data: Record<string, unknown> = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          data = { error: raw || 'Unable to confirm PayPal payment.' };
+        }
+
+        if (!response.ok) {
+          showToast(String(data.error || '無法確認 PayPal 付款，請稍後再試。'));
+          return;
+        }
+
+        if (data.duplicate) {
+          showToast('此筆 PayPal 付款已處理完成。');
+          return;
+        }
+
+        const credits = Number(data.credits || 0);
+        if (credits > 0) {
+          showToast(`付款成功，已新增 ${credits} 次 Plus。`);
+          return;
+        }
+
+        showToast('付款成功。');
+      } catch (error) {
+        const message = error instanceof Error && error.message
+          ? error.message
+          : '無法確認 PayPal 付款，請稍後再試。';
+        showToast(message);
+      } finally {
+        paypalProcessingOrdersRef.current.delete(orderId);
+        clearPaymentQuery();
+      }
+    };
+
+    void processPayment();
+  }, [accessToken, location.pathname, location.search, navigate, showToast]);
 
   useEffect(() => {
     if (isLocalHost() && location.pathname === ROUTES.testLogin) {

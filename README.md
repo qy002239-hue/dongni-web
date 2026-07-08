@@ -38,6 +38,7 @@ OPENROUTER_MODEL=anthropic/claude-sonnet-4-5
 PAYPAL_ENV=sandbox
 PAYPAL_CLIENT_ID=your-paypal-client-id
 PAYPAL_CLIENT_SECRET=your-paypal-client-secret
+PAYPAL_WEBHOOK_ID=your-paypal-webhook-id
 PUBLIC_SITE_URL=https://your-vercel-domain.vercel.app
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=your-supabase-secret-key
@@ -115,6 +116,8 @@ npm run smoke
 
 付款成功後，PayPal 會帶使用者回到懂妳，前端會呼叫 `api/paypal-capture-order.js` 確認付款並呼叫 Supabase 的 `grant_dongni_purchase`。同一筆 PayPal order 只會加一次次數。
 
+正式環境建議啟用 `api/paypal-webhook.js` 當補償路徑。當使用者回跳流程中斷時，Webhook 仍可在驗簽後完成加值，並維持同一筆 order 不重複加次。
+
 ## 次數扣除規則
 
 - 使用者必須登入。
@@ -156,6 +159,7 @@ Vercel 設定使用 `vercel.json`：
 - `api/admin-dashboard.js`: 管理後台資料 API
 - `api/create-checkout-session.js`: PayPal 訂單建立 API
 - `api/paypal-capture-order.js`: PayPal 付款確認後加次數
+- `api/paypal-webhook.js`: PayPal Webhook 驗簽與補償加次數
 - `api/credits.js`: 查詢目前剩餘次數
 - `api/conversation-session.js`: 查詢或開始 30 分鐘閒置制對話 session
 - Stripe webhook 已移除；目前付款流程統一使用 PayPal。

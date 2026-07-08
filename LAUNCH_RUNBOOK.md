@@ -40,9 +40,15 @@
 - Client ID → `PAYPAL_CLIENT_ID`
 - Secret → `PAYPAL_CLIENT_SECRET`
 
-### 2.3 PayPal 付款返回
+### 2.3 PayPal 付款返回與 Webhook
 
-PayPal 不需要先建立 webhook。付款成功後會回到 `PUBLIC_SITE_URL`，懂妳會呼叫 `api/paypal-capture-order.js` 確認付款並加次數。
+付款成功後會回到 `PUBLIC_SITE_URL`，前端會呼叫 `api/paypal-capture-order.js` 確認付款並加次數。
+
+正式上線建議同時啟用 Webhook：
+
+- Webhook URL: `https://你的-vercel 網址/api/paypal-webhook`
+- 事件至少包含：`CHECKOUT.ORDER.COMPLETED`、`PAYMENT.CAPTURE.COMPLETED`
+- 把 PayPal Webhook ID 設到 Vercel：`PAYPAL_WEBHOOK_ID`
 
 ## 3. OpenRouter
 
@@ -75,6 +81,7 @@ OPENROUTER_MODEL=anthropic/claude-sonnet-4-5
 PAYPAL_ENV=sandbox
 PAYPAL_CLIENT_ID=your-paypal-client-id
 PAYPAL_CLIENT_SECRET=your-paypal-client-secret
+PAYPAL_WEBHOOK_ID=your-paypal-webhook-id
 PUBLIC_SITE_URL=https://your-vercel-domain.vercel.app
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=your-supabase-secret-key
@@ -125,8 +132,9 @@ Sandbox 全部成功後再切 live：
 1. 在 PayPal Developer 切到 Live App。
 2. 把 Vercel 的 `PAYPAL_ENV` 改成 `live`。
 3. 換成 PayPal live `PAYPAL_CLIENT_ID` 與 `PAYPAL_CLIENT_SECRET`。
-4. 重新部署。
-5. 用小額正式付款測一次。
+4. 換成 PayPal live Webhook 對應的 `PAYPAL_WEBHOOK_ID`。
+5. 重新部署。
+6. 用小額正式付款測一次。
 
 ## 8. 上架前仍建議補的頁面
 

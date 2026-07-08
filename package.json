@@ -8,6 +8,7 @@
         "server": "node scripts/run-server.mjs",
         "build": "vite build",
         "smoke": "node scripts/smoke.mjs",
+        "paypal:test": "node scripts/paypal-test.mjs",
         "conversation:test": "node scripts/conversation-test.mjs",
         "lint": "eslint .",
         "preview": "vite preview"
