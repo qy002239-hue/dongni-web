@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import './PromptPlaygroundPage.css';
 
 type PromptType = 'chat' | 'conversation-title' | 'future-summary' | 'system';
@@ -58,7 +58,7 @@ export default function PromptPlaygroundPage() {
     return `Type: ${selectedPrompt.type}\nId: ${selectedPrompt.id}\nName: ${selectedPrompt.name}\nVersion: ${selectedPrompt.version}\nEnabled: ${selectedPrompt.enabled}`;
   }, [selectedPrompt]);
 
-  async function loadPrompts() {
+  const loadPrompts = useCallback(async () => {
     setError('');
     const response = await fetch(resolveApiUrl('/api/dev-prompt-playground'));
     const data = await response.json();
@@ -74,18 +74,14 @@ export default function PromptPlaygroundPage() {
     setPrompts(nextMap);
     setStatus('Prompt data synced.');
 
-    const initial = nextMap[selectedType] || nextMap.chat;
-    if (initial) {
-      setPromptInput(String(initial.content || ''));
-    }
-  }
+  }, []);
 
   useEffect(() => {
     loadPrompts().catch((nextError) => {
       setError(nextError.message || 'Unable to load prompts.');
       setStatus('Prompt load failed.');
     });
-  }, []);
+  }, [loadPrompts]);
 
   useEffect(() => {
     if (selectedPrompt) {
