@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react';
 import type { CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
+import EcpayTestPage from './EcpayTestPage';
 import PayPalLiveTestPage from './PayPalLiveTestPage';
 import { FullscreenLoading } from './lib/loading';
 import { useToast } from './lib/use-toast';
@@ -206,6 +207,7 @@ function App() {
       location.pathname === ROUTES.authCallback
       || location.pathname === ROUTES.testLogin
       || location.pathname === ROUTES.paypalLiveTest
+      || location.pathname === ROUTES.ecpayTest
     ) {
       return;
     }
@@ -936,6 +938,10 @@ function App() {
 
   if (location.pathname === ROUTES.paypalLiveTest) {
     return <PayPalLiveTestPage />;
+  }
+
+  if (location.pathname === ROUTES.ecpayTest) {
+    return <EcpayTestPage />;
   }
 
   if (authLoading) {
