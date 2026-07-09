@@ -108,7 +108,7 @@ async function handleConfig(res) {
     hasHashKey: Boolean(ecpayConfig.hashKey),
     hasHashIv: Boolean(ecpayConfig.hashIv),
     productName: '懂妳 ECPay 測試付款',
-    amount: 1,
+    amount: 2,
     paymentMethod: 'Credit',
     actionUrl: ecpayConfig.actionUrl
   });
@@ -125,7 +125,7 @@ async function handleCreateOrder(req, res) {
   const merchantTradeNo = createMerchantTradeNo('DNE');
   const fields = buildEcpayOrderPayload({
     merchantTradeNo,
-    amount: body.amount || 1,
+    amount: body.amount || 2,
     itemName: body.productName || '懂妳 ECPay 測試付款',
     tradeDesc: body.tradeDesc || 'Dongni ECPay payment test',
     returnUrl: ecpayConfig.notifyUrl,

@@ -138,7 +138,7 @@ export default function EcpayTestPage() {
       const response = await fetch('/api/ecpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create-order', amount: 1, productName: '懂妳 ECPay 測試付款', tradeDesc: 'Dongni ECPay payment test' })
+        body: JSON.stringify({ action: 'create-order', amount: 2, productName: '懂妳 ECPay 測試付款', tradeDesc: 'Dongni ECPay payment test' })
       });
       const payload = asRecord(await readJsonResponse(response));
       if (!response.ok) {
