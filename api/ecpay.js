@@ -4,6 +4,10 @@ import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
 
 export const config = { runtime: 'nodejs' };
 
+const MERCHANT_TRADE_NO_PATTERN = /^[A-Z0-9]{8,20}$/;
+const CALLBACK_DEDUPE_TTL_MS = 10 * 60 * 1000;
+const callbackSeenMap = new Map();
+
 function applyCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -22,6 +26,71 @@ function getAction(req) {
 
 function redirectHtml(targetUrl) {
   return `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8" /><meta http-equiv="refresh" content="0;url=${String(targetUrl).replace(/"/g, '&quot;')}" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>ECPay Return</title></head><body><script>window.location.replace(${JSON.stringify(targetUrl)});</script><p>Redirecting back to merchant...</p></body></html>`;
+}
+
+function normalizePayloadValue(payload, key) {
+  return String(payload?.[key] || '').trim();
+}
+
+function verifyMerchantTradeNo(payload) {
+  const merchantTradeNo = normalizePayloadValue(payload, 'MerchantTradeNo');
+  if (!merchantTradeNo || !MERCHANT_TRADE_NO_PATTERN.test(merchantTradeNo)) {
+    return { ok: false, merchantTradeNo, reason: 'invalid_format' };
+  }
+
+  const customField4 = normalizePayloadValue(payload, 'CustomField4');
+  if (customField4 && customField4 !== merchantTradeNo) {
+    return { ok: false, merchantTradeNo, reason: 'custom_field_mismatch', customField4 };
+  }
+
+  return { ok: true, merchantTradeNo, reason: 'ok' };
+}
+
+function createSafeCallbackLog(payload, source, verify, merchantTradeCheck, persistResult) {
+  return {
+    source,
+    merchantTradeNo: normalizePayloadValue(payload, 'MerchantTradeNo').slice(0, 20),
+    tradeNoMasked: maskSecret(normalizePayloadValue(payload, 'TradeNo'), 4, 4),
+    rtnCode: normalizePayloadValue(payload, 'RtnCode'),
+    rtnMsg: normalizePayloadValue(payload, 'RtnMsg').slice(0, 100),
+    paymentType: normalizePayloadValue(payload, 'PaymentType').slice(0, 40),
+    amount: normalizePayloadValue(payload, 'TradeAmt') || normalizePayloadValue(payload, 'TotalAmount'),
+    tradeDate: normalizePayloadValue(payload, 'TradeDate') || normalizePayloadValue(payload, 'PaymentDate'),
+    checksumOk: verify.ok,
+    merchantTradeNoOk: merchantTradeCheck.ok,
+    duplicate: Boolean(persistResult?.duplicate),
+    persistMode: String(persistResult?.mode || ''),
+    persistOk: Boolean(persistResult?.ok)
+  };
+}
+
+function buildCallbackFingerprint(payload, source) {
+  return [
+    source,
+    normalizePayloadValue(payload, 'MerchantTradeNo'),
+    normalizePayloadValue(payload, 'TradeNo'),
+    normalizePayloadValue(payload, 'RtnCode'),
+    normalizePayloadValue(payload, 'CheckMacValue')
+  ].join('|');
+}
+
+function checkAndMarkDuplicateCallback(payload, source) {
+  const now = Date.now();
+
+  for (const [key, timestamp] of callbackSeenMap.entries()) {
+    if (now - timestamp > CALLBACK_DEDUPE_TTL_MS) {
+      callbackSeenMap.delete(key);
+    }
+  }
+
+  const fingerprint = buildCallbackFingerprint(payload, source);
+  const seen = callbackSeenMap.has(fingerprint);
+  callbackSeenMap.set(fingerprint, now);
+
+  return {
+    duplicate: seen,
+    fingerprint
+  };
 }
 
 async function handleConfig(res) {
@@ -83,12 +152,39 @@ async function handleNotify(req, res) {
   const payload = parseEcpayBody(req);
   const ecpayConfig = getEcpayConfig();
   const verify = verifyCheckMacValue(payload, ecpayConfig.hashKey, ecpayConfig.hashIv);
+  const merchantTradeCheck = verifyMerchantTradeNo(payload);
+  const dedupe = checkAndMarkDuplicateCallback(payload, 'notify');
+
+  if (!merchantTradeCheck.ok) {
+    console.error('[ECPAY_CALLBACK]', {
+      source: 'notify',
+      reason: 'merchant_trade_no_invalid',
+      merchantTradeNo: merchantTradeCheck.merchantTradeNo,
+      detail: merchantTradeCheck.reason
+    });
+    return res.status(400).send('0|MerchantTradeNo Error');
+  }
 
   if (!verify.ok) {
+    console.error('[ECPAY_CALLBACK]', {
+      source: 'notify',
+      reason: 'check_mac_failed',
+      merchantTradeNo: merchantTradeCheck.merchantTradeNo
+    });
     return res.status(400).send('0|CheckMacValue Error');
   }
 
-  await persistEcpayPaymentResult(payload, 'notify');
+  const persistResult = await persistEcpayPaymentResult(payload, 'notify');
+  const duplicate = Boolean(dedupe.duplicate || persistResult?.duplicate);
+  const safeLog = createSafeCallbackLog(payload, 'notify', verify, merchantTradeCheck, persistResult);
+  safeLog.duplicate = duplicate;
+  console.log('[ECPAY_CALLBACK]', safeLog);
+
+  if (persistResult?.mode) {
+    res.setHeader('X-Dongni-Persist-Mode', String(persistResult.mode));
+  }
+  res.setHeader('X-Dongni-Callback-Duplicate', duplicate ? 'true' : 'false');
+  res.setHeader('X-Dongni-Payment-Status', String(payload?.RtnCode || '') === '1' ? 'paid' : 'failed');
   return res.status(200).send('1|OK');
 }
 
@@ -96,22 +192,36 @@ async function handleReturn(req, res) {
   const payload = parseEcpayBody(req);
   const ecpayConfig = getEcpayConfig();
   const verify = verifyCheckMacValue(payload, ecpayConfig.hashKey, ecpayConfig.hashIv);
+  const merchantTradeCheck = verifyMerchantTradeNo(payload);
+  const dedupe = checkAndMarkDuplicateCallback(payload, 'return');
   const success = String(payload?.RtnCode || '') === '1';
 
-  await persistEcpayPaymentResult(payload, 'return');
+  const persistResult = await persistEcpayPaymentResult(payload, 'return');
+  const duplicate = Boolean(dedupe.duplicate || persistResult?.duplicate);
+  const safeLog = createSafeCallbackLog(payload, 'return', verify, merchantTradeCheck, persistResult);
+  safeLog.duplicate = duplicate;
+  console.log('[ECPAY_CALLBACK]', safeLog);
+
+  const status = !merchantTradeCheck.ok
+    ? 'merchant-trade-no-error'
+    : (verify.ok ? (success ? 'success' : 'failed') : 'checksum-error');
 
   const params = new URLSearchParams({
-    status: verify.ok ? (success ? 'success' : 'failed') : 'checksum-error',
+    status,
     merchantTradeNo: String(payload?.MerchantTradeNo || ''),
     tradeNo: String(payload?.TradeNo || ''),
     rtnCode: String(payload?.RtnCode || ''),
     rtnMsg: String(payload?.RtnMsg || ''),
     paymentType: String(payload?.PaymentType || ''),
     amount: String(payload?.TradeAmt || payload?.TotalAmount || ''),
-    checksum: verify.ok ? 'ok' : 'failed'
+    tradeDate: String(payload?.TradeDate || payload?.PaymentDate || ''),
+    checksum: verify.ok ? 'ok' : 'failed',
+    merchantTradeNoCheck: merchantTradeCheck.ok ? 'ok' : 'failed',
+    callbackSource: 'return',
+    duplicate: duplicate ? 'true' : 'false'
   });
 
-  const targetUrl = `${ecpayConfig.publicSiteUrl}/test/ecpay?${params.toString()}`;
+  const targetUrl = `${ecpayConfig.publicSiteUrl}/payment/result?${params.toString()}`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   return res.status(200).send(redirectHtml(targetUrl));
 }
