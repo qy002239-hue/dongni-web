@@ -105,7 +105,7 @@ export default function PayPalLiveTestPage() {
       setButtonRendered(false);
 
       try {
-        const response = await fetch('/api/paypal-live-test-config');
+        const response = await fetch('/api/paypal-live-test?action=config');
         const data = asRecord(await readJsonResponse(response));
 
         if (!response.ok) {
@@ -221,12 +221,13 @@ export default function PayPalLiveTestPage() {
           },
           createOrder: async () => {
             console.log('[PayPal LIVE Test] createOrder requested');
-            const response = await fetch('/api/paypal-live-test-create-order', {
+            const response = await fetch('/api/paypal-live-test', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
+                action: 'create-order',
                 amount: config.amount,
                 currency: config.currency,
                 packageName: config.packageName
@@ -246,12 +247,12 @@ export default function PayPalLiveTestPage() {
           onApprove: async (data) => {
             console.log('[PayPal LIVE Test] onApprove', data);
             try {
-              const response = await fetch('/api/paypal-live-test-capture-order', {
+              const response = await fetch('/api/paypal-live-test', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ orderId: data.orderID })
+                body: JSON.stringify({ action: 'capture-order', orderId: data.orderID })
               });
 
               const payload = asRecord(await readJsonResponse(response));

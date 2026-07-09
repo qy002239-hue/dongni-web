@@ -90,7 +90,7 @@ export default function EcpayTestPage() {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch('/api/ecpay-test-config');
+        const response = await fetch('/api/ecpay?action=config');
         const payload = asRecord(await readJsonResponse(response));
         if (!response.ok) {
           throw new Error(parseApiError(payload, 'Failed to load ECPay test configuration.'));
@@ -135,10 +135,10 @@ export default function EcpayTestPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/ecpay-create-order', {
+      const response = await fetch('/api/ecpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: 1, productName: '懂妳 ECPay 測試付款', tradeDesc: 'Dongni ECPay payment test' })
+        body: JSON.stringify({ action: 'create-order', amount: 1, productName: '懂妳 ECPay 測試付款', tradeDesc: 'Dongni ECPay payment test' })
       });
       const payload = asRecord(await readJsonResponse(response));
       if (!response.ok) {
