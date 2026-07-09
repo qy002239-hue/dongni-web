@@ -10,6 +10,7 @@
     "noEmit": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "types": ["vite/client"]
   },
   "include": ["src/**/*", "api/**/*.js", "scripts/**/*.mjs"]

@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react';
 import type { CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
+import PayPalLiveTestPage from './PayPalLiveTestPage';
 import { FullscreenLoading } from './lib/loading';
 import { useToast } from './lib/use-toast';
 import { toErrorMessage } from './lib/errors';
@@ -57,6 +58,8 @@ function App() {
   const [input, setInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [welcomeConfirmed, setWelcomeConfirmed] = useState(false);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
 
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -199,7 +202,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (location.pathname === ROUTES.authCallback || location.pathname === ROUTES.testLogin) {
+    if (
+      location.pathname === ROUTES.authCallback
+      || location.pathname === ROUTES.testLogin
+      || location.pathname === ROUTES.paypalLiveTest
+    ) {
       return;
     }
 
@@ -631,6 +638,54 @@ function App() {
     }
   };
 
+  const openPurchaseModal = () => {
+    setPurchaseOpen(true);
+  };
+
+  const closePurchaseModal = () => {
+    if (isCreatingCheckout) return;
+    setPurchaseOpen(false);
+  };
+
+  const startCheckout = async () => {
+    if (!accessToken || isCreatingCheckout) return;
+
+    setIsCreatingCheckout(true);
+
+    try {
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ plan: 'dongni-plus-single' })
+      });
+
+      const raw = await response.text();
+      let data: Record<string, unknown> = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = { error: raw || '付款建立失敗，請稍後再試。' };
+      }
+
+      if (!response.ok || !data.url) {
+        showToast(String(data.error || '付款建立失敗，請稍後再試。'));
+        setIsCreatingCheckout(false);
+        return;
+      }
+
+      window.location.assign(String(data.url));
+    } catch (error) {
+      const message = error instanceof Error && error.message
+        ? error.message
+        : '付款建立失敗，請稍後再試。';
+      showToast(message);
+      setIsCreatingCheckout(false);
+    }
+  };
+
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
 
@@ -879,6 +934,10 @@ function App() {
     return <FullscreenLoading text="Google 登入處理中..." />;
   }
 
+  if (location.pathname === ROUTES.paypalLiveTest) {
+    return <PayPalLiveTestPage />;
+  }
+
   if (authLoading) {
     return <FullscreenLoading text="Loading..." />;
   }
@@ -991,9 +1050,34 @@ function App() {
           <div className="dongni-nav-button" aria-hidden="true">已登入</div>
           <div className="dongni-chat-title">【懂 妳】</div>
           <div className="dongni-nav-actions">
+            <button onClick={openPurchaseModal} className="dongni-nav-button" type="button">購買次數</button>
             <button onClick={() => void logout()} className="dongni-nav-button" type="button">登出</button>
           </div>
         </div>
+
+        {purchaseOpen ? (
+          <div className="dongni-purchase-modal-backdrop" onClick={closePurchaseModal}>
+            <section className="dongni-purchase-modal" onClick={(event) => event.stopPropagation()}>
+              <h2 className="dongni-purchase-title">200 元 / 次</h2>
+              <button
+                type="button"
+                className="dongni-purchase-pay-button"
+                disabled={isCreatingCheckout}
+                onClick={() => void startCheckout()}
+              >
+                {isCreatingCheckout ? '處理中...' : '使用 PayPal 付款'}
+              </button>
+              <button
+                type="button"
+                className="dongni-purchase-close-button"
+                disabled={isCreatingCheckout}
+                onClick={closePurchaseModal}
+              >
+                關閉
+              </button>
+            </section>
+          </div>
+        ) : null}
 
         {toast.visible ? (
           <button className="dongni-notice" type="button" onClick={clearToast}>

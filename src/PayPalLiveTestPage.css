@@ -1,0 +1,138 @@
+.paypal-live-page {
+  min-height: 100dvh;
+  padding: 20px;
+  background: linear-gradient(140deg, #0b1220, #10263a 45%, #1f2937);
+  color: #f8fafc;
+}
+
+.paypal-live-panel {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  background: rgba(10, 16, 26, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+}
+
+.paypal-live-panel h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.paypal-live-warning {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.18);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+  font-weight: 600;
+}
+
+.paypal-live-meta-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.paypal-live-meta-item {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  display: grid;
+  gap: 4px;
+}
+
+.paypal-live-label {
+  font-size: 12px;
+  color: #cbd5e1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.paypal-live-button-container {
+  min-height: 52px;
+  margin: 14px 0 18px;
+}
+
+.paypal-live-blocking-error {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.3);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: #fecaca;
+}
+
+.paypal-live-result {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.paypal-live-result-success {
+  border-color: rgba(74, 222, 128, 0.5);
+  background: rgba(20, 83, 45, 0.35);
+}
+
+.paypal-live-result-cancel {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(120, 53, 15, 0.3);
+}
+
+.paypal-live-result-error {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.32);
+}
+
+.paypal-live-result h2 {
+  margin: 0 0 8px;
+}
+
+.paypal-live-result p {
+  margin: 0 0 10px;
+}
+
+.paypal-live-result dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 6px 10px;
+}
+
+.paypal-live-result dt {
+  color: #cbd5e1;
+}
+
+.paypal-live-result dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .paypal-live-page {
+    padding: 12px;
+  }
+
+  .paypal-live-panel {
+    padding: 16px;
+  }
+
+  .paypal-live-panel h1 {
+    font-size: 24px;
+  }
+
+  .paypal-live-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .paypal-live-result dl {
+    grid-template-columns: 1fr;
+  }
+}

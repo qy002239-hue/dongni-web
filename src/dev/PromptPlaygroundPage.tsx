@@ -113,7 +113,10 @@ export default function PromptPlaygroundPage() {
       setStatus('Prompt saved. Changes are now active in development.');
       await loadPrompts();
     } catch (nextError) {
-      setError(nextError.message || 'Unable to save prompt.');
+      const message = nextError instanceof Error && nextError.message
+        ? nextError.message
+        : 'Unable to save prompt.';
+      setError(message);
       setStatus('Save failed.');
     } finally {
       setIsSaving(false);
@@ -146,7 +149,10 @@ export default function PromptPlaygroundPage() {
       setResult(data);
       setStatus('Test complete.');
     } catch (nextError) {
-      setError(nextError.message || 'Prompt test failed.');
+      const message = nextError instanceof Error && nextError.message
+        ? nextError.message
+        : 'Prompt test failed.';
+      setError(message);
       setStatus('Test failed.');
     } finally {
       setIsTesting(false);
