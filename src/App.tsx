@@ -1053,19 +1053,21 @@ function App() {
 
       if (debugPayload.willRedirectToPlus) {
         debugPayload.navigatePlusCallsite = 'src/App.tsx:submit/catch plus branch';
-        console.error('[CHAT DEBUG] ge() called', {
-          location: 'src/App.tsx:submit/catch',
-          reason: debugPayload.redirectReason
-        });
-        console.error("[CHAT DEBUG] navigate('/plus') 呼叫位置", {
-          location: 'src/App.tsx:submit/catch',
-          reason: debugPayload.redirectReason
-        });
-        console.error("[CHAT DEBUG] router.push('/plus') 呼叫位置", {
-          location: 'src/App.tsx:submit/catch',
-          reason: debugPayload.redirectReason,
-          note: 'react-router-dom does not use router.push in this file'
-        });
+        if (shouldLogChatDebug) {
+          console.error('[CHAT DEBUG] ge() called', {
+            location: 'src/App.tsx:submit/catch',
+            reason: debugPayload.redirectReason
+          });
+          console.error("[CHAT DEBUG] navigate('/plus') 呼叫位置", {
+            location: 'src/App.tsx:submit/catch',
+            reason: debugPayload.redirectReason
+          });
+          console.error("[CHAT DEBUG] router.push('/plus') 呼叫位置", {
+            location: 'src/App.tsx:submit/catch',
+            reason: debugPayload.redirectReason,
+            note: 'react-router-dom does not use router.push in this file'
+          });
+        }
       }
 
       if (!navigator.onLine) {

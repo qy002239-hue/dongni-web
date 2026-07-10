@@ -148,6 +148,10 @@ function checkAndMarkDuplicateCallback(payload, source) {
 }
 
 async function handleConfig(res) {
+  if (isProductionDeployment()) {
+    return jsonError(res, 404, 'Not found');
+  }
+
   const validation = validateEcpayConfig();
   if (!validation.ok) {
     console.error('[ECPAY_CONFIG_BLOCKED]', {

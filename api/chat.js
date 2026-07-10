@@ -148,7 +148,11 @@ export default async function handler(req, res) {
 
     return res.end();
   } catch (error) {
-    console.error('chat error:', error);
+    const errorMessage = error instanceof Error && error.message ? error.message : String(error || '');
+    const isAuthError = /登入|login/i.test(errorMessage);
+    if (!isAuthError) {
+      console.error('chat error:', error);
+    }
     if (!res.headersSent) {
       const message = error instanceof Error && error.message ? error.message : '懂妳暫時無法回應，請稍後再試。';
       const status = message.includes('登入') || message.includes('login') ? 401 : 500;

@@ -173,7 +173,7 @@ export default async function handler(req, res) {
 
   // Never expose standalone live test payment controls in production.
   if (isProductionDeployment()) {
-    return jsonError(res, 403, 'LIVE PayPal test endpoint is disabled in production.');
+    return jsonError(res, 404, 'Not found');
   }
 
   if (req.method === 'GET') {
