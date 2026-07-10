@@ -47,6 +47,16 @@ const welcomeConsentKey = 'dongni_welcome_disclaimer_ack';
 type Provider = 'ecpay' | 'paypal';
 type PlanId = 'dongni-plus-single' | 'dongni-plus-six-pack';
 
+type ProviderStatus = {
+  available: boolean;
+  reason: string;
+};
+
+const DEFAULT_PROVIDER_STATUS: Record<Provider, ProviderStatus> = {
+  ecpay: { available: true, reason: '' },
+  paypal: { available: true, reason: '' }
+};
+
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -65,10 +75,11 @@ function App() {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
   const [paymentCountry, setPaymentCountry] = useState('');
-  const [availableProviders, setAvailableProviders] = useState<Provider[]>(['ecpay', 'paypal']);
+  const [providerStatus, setProviderStatus] = useState<Record<Provider, ProviderStatus>>(DEFAULT_PROVIDER_STATUS);
   const [selectedProvider, setSelectedProvider] = useState<Provider>('ecpay');
   const [selectedPlan, setSelectedPlan] = useState<PlanId>('dongni-plus-single');
   const [paymentOptionsLoading, setPaymentOptionsLoading] = useState(false);
+  const [purchaseError, setPurchaseError] = useState('');
 
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -650,11 +661,13 @@ function App() {
   };
 
   const openPurchaseModal = () => {
+    setPurchaseError('');
     setPurchaseOpen(true);
   };
 
   const closePurchaseModal = () => {
     if (isCreatingCheckout) return;
+    setPurchaseError('');
     setPurchaseOpen(false);
   };
 
@@ -680,22 +693,38 @@ function App() {
           ? data.availableProviders.filter((item): item is Provider => item === 'ecpay' || item === 'paypal')
           : [];
 
-        const fallbackProviders: Provider[] = providers.length ? providers : ['ecpay', 'paypal'];
+        const nextStatus: Record<Provider, ProviderStatus> = {
+          ecpay: {
+            available: providers.includes('ecpay'),
+            reason: String((data.providers as Record<string, unknown> | undefined)?.ecpay && typeof (data.providers as Record<string, unknown>).ecpay === 'object'
+              ? ((data.providers as Record<string, Record<string, unknown>>).ecpay?.reason || '')
+              : '')
+          },
+          paypal: {
+            available: providers.includes('paypal'),
+            reason: String((data.providers as Record<string, unknown> | undefined)?.paypal && typeof (data.providers as Record<string, unknown>).paypal === 'object'
+              ? ((data.providers as Record<string, Record<string, unknown>>).paypal?.reason || '')
+              : '')
+          }
+        };
+
         const recommended = data.recommendedProvider === 'paypal' ? 'paypal' : 'ecpay';
-        const nextProvider = fallbackProviders.includes(recommended)
+        const nextProvider = providers.includes(recommended)
           ? recommended
-          : fallbackProviders[0];
+          : (providers[0] || recommended);
 
         if (!canceled) {
-          setAvailableProviders(fallbackProviders);
+          setProviderStatus(nextStatus);
           setSelectedProvider(nextProvider);
           setPaymentCountry(String(data.country || '').trim().toUpperCase());
+          setPurchaseError('');
         }
       } catch {
         if (!canceled) {
-          setAvailableProviders(['ecpay', 'paypal']);
+          setProviderStatus(DEFAULT_PROVIDER_STATUS);
           setSelectedProvider('ecpay');
           setPaymentCountry('');
+          setPurchaseError('付款方式載入失敗，請稍後再試。');
         }
       } finally {
         if (!canceled) {
@@ -740,9 +769,25 @@ function App() {
   }, []);
 
   const startCheckout = async () => {
-    if (!accessToken || isCreatingCheckout) return;
+    if (isCreatingCheckout) return;
+
+    if (!accessToken) {
+      const message = '登入狀態已失效，請重新登入後再付款。';
+      setPurchaseError(message);
+      showToast(message);
+      return;
+    }
+
+    const status = providerStatus[selectedProvider];
+    if (!status.available) {
+      const message = status.reason || '此付款方式目前不可用，請切換其他付款方式。';
+      setPurchaseError(message);
+      showToast(message);
+      return;
+    }
 
     setIsCreatingCheckout(true);
+    setPurchaseError('');
 
     try {
       if (accessToken === 'local-e2e-token' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
@@ -775,7 +820,9 @@ function App() {
 
       if (selectedProvider === 'ecpay') {
         if (!response.ok) {
-          showToast(String(data.error || 'ECPay 付款建立失敗，請稍後再試。'));
+          const message = String(data.error || 'ECPay 付款建立失敗，請稍後再試。');
+          setPurchaseError(message);
+          showToast(message);
           setIsCreatingCheckout(false);
           return;
         }
@@ -784,7 +831,9 @@ function App() {
       }
 
       if (!response.ok || !data.url) {
-        showToast(String(data.error || '付款建立失敗，請稍後再試。'));
+        const message = String(data.error || '付款建立失敗，請稍後再試。');
+        setPurchaseError(message);
+        showToast(message);
         setIsCreatingCheckout(false);
         return;
       }
@@ -794,6 +843,7 @@ function App() {
       const message = error instanceof Error && error.message
         ? error.message
         : '付款建立失敗，請稍後再試。';
+      setPurchaseError(message);
       showToast(message);
       setIsCreatingCheckout(false);
     }
@@ -1206,32 +1256,42 @@ function App() {
               </div>
 
               <div className="dongni-purchase-provider-grid" role="tablist" aria-label="付款方式">
-                {availableProviders.includes('ecpay') ? (
-                  <button
-                    type="button"
-                    className={`dongni-purchase-provider ${selectedProvider === 'ecpay' ? 'dongni-purchase-provider-active' : ''}`}
-                    onClick={() => setSelectedProvider('ecpay')}
-                    disabled={isCreatingCheckout || paymentOptionsLoading}
-                  >
-                    ECPay（台灣）
-                  </button>
-                ) : null}
-                {availableProviders.includes('paypal') ? (
-                  <button
-                    type="button"
-                    className={`dongni-purchase-provider ${selectedProvider === 'paypal' ? 'dongni-purchase-provider-active' : ''}`}
-                    onClick={() => setSelectedProvider('paypal')}
-                    disabled={isCreatingCheckout || paymentOptionsLoading}
-                  >
-                    PayPal（海外）
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className={`dongni-purchase-provider ${selectedProvider === 'ecpay' ? 'dongni-purchase-provider-active' : ''}`}
+                  onClick={() => {
+                    setSelectedProvider('ecpay');
+                    setPurchaseError('');
+                  }}
+                  disabled={isCreatingCheckout || paymentOptionsLoading || !providerStatus.ecpay.available}
+                >
+                  ECPay（台灣）
+                </button>
+                <button
+                  type="button"
+                  className={`dongni-purchase-provider ${selectedProvider === 'paypal' ? 'dongni-purchase-provider-active' : ''}`}
+                  onClick={() => {
+                    setSelectedProvider('paypal');
+                    setPurchaseError('');
+                  }}
+                  disabled={isCreatingCheckout || paymentOptionsLoading || !providerStatus.paypal.available}
+                >
+                  PayPal（海外）
+                </button>
               </div>
+
+              {!providerStatus.ecpay.available && providerStatus.ecpay.reason ? (
+                <p className="dongni-purchase-provider-note">ECPay 目前不可用：{providerStatus.ecpay.reason}</p>
+              ) : null}
+              {!providerStatus.paypal.available && providerStatus.paypal.reason ? (
+                <p className="dongni-purchase-provider-note">PayPal 目前不可用：{providerStatus.paypal.reason}</p>
+              ) : null}
+              {purchaseError ? <p className="dongni-purchase-error">{purchaseError}</p> : null}
 
               <button
                 type="button"
                 className="dongni-purchase-pay-button"
-                disabled={isCreatingCheckout || paymentOptionsLoading}
+                disabled={isCreatingCheckout || paymentOptionsLoading || !providerStatus[selectedProvider].available}
                 onClick={() => void startCheckout()}
               >
                 {isCreatingCheckout
