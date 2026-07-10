@@ -1,5 +1,6 @@
 import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
 import { normalizePayPalEnv, paypalApiRequest, requestPayPalAccessToken } from './_paypal.js';
+import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -7,6 +8,16 @@ function applyCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+function isProductionDeployment() {
+  const value = String(process.env.VERCEL_ENV || process.env.NODE_ENV || '').trim().toLowerCase();
+  return value === 'production';
+}
+
+async function ensureAuthenticatedUser(req) {
+  const supabase = getSupabaseAdmin();
+  await getAuthenticatedUser(req, supabase);
 }
 
 function maskClientId(clientId) {
@@ -159,6 +170,12 @@ export default async function handler(req, res) {
   }
 
   const action = getAction(req);
+
+  // Never expose standalone live test payment controls in production.
+  if (isProductionDeployment()) {
+    return jsonError(res, 403, 'LIVE PayPal test endpoint is disabled in production.');
+  }
+
   if (req.method === 'GET') {
     if (action === 'config') return handleConfig(res);
     return methodNotAllowed(res, 'GET, POST');
@@ -166,6 +183,13 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return methodNotAllowed(res, 'GET, POST');
+  }
+
+  try {
+    await ensureAuthenticatedUser(req);
+  } catch (error) {
+    const message = error instanceof Error && error.message ? error.message : '請先登入。';
+    return jsonError(res, 401, message);
   }
 
   if (action === 'create-order') return handleCreateOrder(req, res);

@@ -15,6 +15,26 @@ function normalizeCountry(value) {
   return /^[A-Z]{2}$/.test(code) ? code : '';
 }
 
+function normalizeLocale(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function detectLocale(req) {
+  const header = String(req?.headers?.['accept-language'] || '').trim();
+  if (!header) return '';
+  const first = header.split(',')[0] || '';
+  return normalizeLocale(first.split(';')[0] || '');
+}
+
+function isTraditionalChineseLocale(locale) {
+  const normalized = normalizeLocale(locale);
+  if (!normalized) return false;
+  return normalized.includes('zh-hant')
+    || normalized.endsWith('-tw')
+    || normalized.endsWith('-hk')
+    || normalized.endsWith('-mo');
+}
+
 function detectCountry(req) {
   const headers = req?.headers || {};
   return normalizeCountry(
@@ -66,6 +86,8 @@ export default async function handler(req, res) {
   }
 
   const country = detectCountry(req);
+  const locale = detectLocale(req);
+  const traditionalChinese = isTraditionalChineseLocale(locale);
   const ecpay = resolveEcpayAvailability();
   const paypal = await resolvePaypalAvailability();
 
@@ -74,6 +96,9 @@ export default async function handler(req, res) {
   if (paypal.available) availableProviders.push('paypal');
 
   const preferredProvider = country === 'TW' ? 'ecpay' : 'paypal';
+  const recommendationReason = country === 'TW'
+    ? 'tw_user_prefers_ecpay'
+    : (traditionalChinese ? 'non_tw_traditional_chinese_prefers_paypal' : 'non_tw_prefers_paypal');
   const recommendedProvider = availableProviders.includes(preferredProvider)
     ? preferredProvider
     : (availableProviders[0] || null);
@@ -81,6 +106,9 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true,
     country,
+    locale,
+    traditionalChinese,
+    recommendationReason,
     recommendedProvider,
     availableProviders,
     canSwitch: availableProviders.length > 1,

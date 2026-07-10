@@ -4,12 +4,18 @@ import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
 import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
 import { getPayPalPlan } from './_paypal.js';
 import { grantCreditsForApprovedPayment } from './_payment-grant.js';
+import { finalizeWebhookEvent, registerWebhookEvent } from './_webhook-events.js';
 
 export const config = { runtime: 'nodejs' };
 
 const MERCHANT_TRADE_NO_PATTERN = /^[A-Z0-9]{8,20}$/;
 const CALLBACK_DEDUPE_TTL_MS = 10 * 60 * 1000;
 const callbackSeenMap = new Map();
+
+function isProductionDeployment() {
+  const value = String(process.env.VERCEL_ENV || process.env.NODE_ENV || '').trim().toLowerCase();
+  return value === 'production';
+}
 
 function applyCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -174,6 +180,10 @@ async function handleCreateOrder(req, res) {
   const requestedPlanId = String(body.plan || '').trim();
   const requestedPlan = requestedPlanId ? getPayPalPlan(requestedPlanId) : null;
 
+  if (isProductionDeployment() && !requestedPlanId) {
+    return jsonError(res, 400, 'Production checkout requires a server-defined plan.');
+  }
+
   let userId = '';
   if (requestedPlanId) {
     if (!requestedPlan) {
@@ -224,6 +234,9 @@ async function handleCreateOrder(req, res) {
 
 async function handleNotify(req, res) {
   const payload = parseEcpayBody(req);
+  const supabase = getSupabaseAdmin();
+  const eventType = String(payload?.RtnCode || '') === '1' ? 'payment_success' : 'payment_failed';
+  const eventKey = buildCallbackFingerprint(payload, 'notify');
   const ecpayConfig = getEcpayConfig();
   const verify = verifyCheckMacValue(payload, ecpayConfig.hashKey, ecpayConfig.hashIv);
   const merchantTradeCheck = verifyMerchantTradeNo(payload);
@@ -236,6 +249,11 @@ async function handleNotify(req, res) {
       merchantTradeNo: merchantTradeCheck.merchantTradeNo,
       detail: merchantTradeCheck.reason
     });
+    await finalizeWebhookEvent(supabase, eventKey, {
+      status: 'failed',
+      errorMessage: 'MerchantTradeNo validation failed.',
+      orderId: merchantTradeCheck.merchantTradeNo
+    });
     return res.status(400).send('0|MerchantTradeNo Error');
   }
 
@@ -245,7 +263,32 @@ async function handleNotify(req, res) {
       reason: 'check_mac_failed',
       merchantTradeNo: merchantTradeCheck.merchantTradeNo
     });
+    await finalizeWebhookEvent(supabase, eventKey, {
+      status: 'failed',
+      errorMessage: 'CheckMacValue verification failed.',
+      orderId: merchantTradeCheck.merchantTradeNo,
+      captureId: normalizePayloadValue(payload, 'TradeNo')
+    });
     return res.status(400).send('0|CheckMacValue Error');
+  }
+
+  const eventStore = await registerWebhookEvent(supabase, {
+    provider: 'ecpay',
+    eventKey,
+    eventType,
+    source: 'ecpay-notify',
+    orderId: normalizePayloadValue(payload, 'MerchantTradeNo'),
+    captureId: normalizePayloadValue(payload, 'TradeNo'),
+    payload
+  });
+
+  if (!eventStore.ok) {
+    return res.status(500).send('0|Event Store Error');
+  }
+
+  if (eventStore.duplicate) {
+    res.setHeader('X-Dongni-Webhook-Duplicate', 'true');
+    return res.status(200).send('1|OK');
   }
 
   const persistResult = await persistEcpayPaymentResult(payload, 'notify');
@@ -260,8 +303,20 @@ async function handleNotify(req, res) {
       ...createSafeGrantLog(payload),
       error: String(grantResult.error || 'Failed to grant credits for ECPay callback.')
     });
+    await finalizeWebhookEvent(supabase, eventKey, {
+      status: 'failed',
+      errorMessage: String(grantResult.error || 'Failed to grant credits for ECPay callback.'),
+      orderId: normalizePayloadValue(payload, 'MerchantTradeNo'),
+      captureId: normalizePayloadValue(payload, 'TradeNo')
+    });
     return res.status(500).send('0|Grant Error');
   }
+
+  await finalizeWebhookEvent(supabase, eventKey, {
+    status: grantResult.duplicate ? 'duplicate' : 'processed',
+    orderId: normalizePayloadValue(payload, 'MerchantTradeNo'),
+    captureId: normalizePayloadValue(payload, 'TradeNo')
+  });
 
   if (persistResult?.mode) {
     res.setHeader('X-Dongni-Persist-Mode', String(persistResult.mode));
@@ -273,11 +328,31 @@ async function handleNotify(req, res) {
 
 async function handleReturn(req, res) {
   const payload = parseEcpayBody(req);
+  const supabase = getSupabaseAdmin();
+  const eventType = String(payload?.RtnCode || '') === '1' ? 'payment_success' : 'payment_failed';
+  const eventKey = buildCallbackFingerprint(payload, 'return');
   const ecpayConfig = getEcpayConfig();
   const verify = verifyCheckMacValue(payload, ecpayConfig.hashKey, ecpayConfig.hashIv);
   const merchantTradeCheck = verifyMerchantTradeNo(payload);
   const dedupe = checkAndMarkDuplicateCallback(payload, 'return');
   const success = String(payload?.RtnCode || '') === '1';
+
+  let eventStore = { ok: true, duplicate: false };
+  if (merchantTradeCheck.ok && verify.ok) {
+    eventStore = await registerWebhookEvent(supabase, {
+      provider: 'ecpay',
+      eventKey,
+      eventType,
+      source: 'ecpay-return',
+      orderId: normalizePayloadValue(payload, 'MerchantTradeNo'),
+      captureId: normalizePayloadValue(payload, 'TradeNo'),
+      payload
+    });
+
+    if (!eventStore.ok) {
+      return res.status(500).send('Event Store Error');
+    }
+  }
 
   const persistResult = await persistEcpayPaymentResult(payload, 'return');
   const grantResult = await grantCreditsForEcpayPayment(payload);
@@ -290,6 +365,18 @@ async function handleReturn(req, res) {
     console.error('[ECPAY_GRANT_ERROR]', {
       ...createSafeGrantLog(payload),
       error: String(grantResult.error || 'Failed to grant credits for ECPay return callback.')
+    });
+    await finalizeWebhookEvent(supabase, eventKey, {
+      status: 'failed',
+      errorMessage: String(grantResult.error || 'Failed to grant credits for ECPay return callback.'),
+      orderId: normalizePayloadValue(payload, 'MerchantTradeNo'),
+      captureId: normalizePayloadValue(payload, 'TradeNo')
+    });
+  } else {
+    await finalizeWebhookEvent(supabase, eventKey, {
+      status: grantResult.duplicate || eventStore.duplicate ? 'duplicate' : 'processed',
+      orderId: normalizePayloadValue(payload, 'MerchantTradeNo'),
+      captureId: normalizePayloadValue(payload, 'TradeNo')
     });
   }
 
