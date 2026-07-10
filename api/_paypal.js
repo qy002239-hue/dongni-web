@@ -26,6 +26,29 @@ export function getPayPalBaseUrl(paypalEnv = normalizePayPalEnv()) {
     : 'https://api-m.sandbox.paypal.com';
 }
 
+async function fetchPayPalToken(baseUrl, clientId, clientSecret, fetchImpl = fetch) {
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const response = await fetchImpl(`${baseUrl}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials'
+  });
+
+  const text = await response.text();
+  const payload = (() => {
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch {
+      return { error_description: text || 'PayPal token response is not JSON.' };
+    }
+  })();
+
+  return { response, payload };
+}
+
 export function getPayPalPlan(planId) {
   return PAYPAL_PLAN_MAP[String(planId || '').trim()] || null;
 }
@@ -91,29 +114,27 @@ export async function requestPayPalAccessToken({ fetchImpl = fetch } = {}) {
     throw new Error('PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are required.');
   }
 
-  const baseUrl = getPayPalBaseUrl();
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
-  const response = await fetchImpl(`${baseUrl}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: 'grant_type=client_credentials'
-  });
-
-  const text = await response.text();
-  const payload = (() => {
-    try {
-      return text ? JSON.parse(text) : {};
-    } catch {
-      return { error_description: text || 'PayPal token response is not JSON.' };
-    }
-  })();
+  const paypalEnv = normalizePayPalEnv();
+  const baseUrl = getPayPalBaseUrl(paypalEnv);
+  const { response, payload } = await fetchPayPalToken(baseUrl, clientId, clientSecret, fetchImpl);
 
   if (!response.ok || !payload?.access_token) {
-    const detail = payload?.error_description || payload?.error || 'Unable to get PayPal access token.';
+    let detail = payload?.error_description || payload?.error || 'Unable to get PayPal access token.';
+    const isInvalidClient = String(payload?.error || '').toLowerCase() === 'invalid_client';
+
+    if (isInvalidClient) {
+      const oppositeEnv = paypalEnv === 'live' ? 'sandbox' : 'live';
+      const oppositeBase = getPayPalBaseUrl(oppositeEnv);
+      try {
+        const opposite = await fetchPayPalToken(oppositeBase, clientId, clientSecret, fetchImpl);
+        if (opposite.response.ok && opposite.payload?.access_token) {
+          detail = `Client Authentication failed in ${paypalEnv}. Credentials appear valid in ${oppositeEnv}, likely ${oppositeEnv} credentials are being used.`;
+        }
+      } catch {
+        // Keep original detail if opposite endpoint check fails.
+      }
+    }
+
     throw new Error(`PayPal auth failed: ${detail}`);
   }
 

@@ -5,6 +5,11 @@ const ECPAY_ENDPOINTS = {
   production: 'https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5'
 };
 
+const KNOWN_ECPAY_TEST_MERCHANT_IDS = new Set([
+  '2000132',
+  '3002607'
+]);
+
 function normalizeText(value, max = 0) {
   const text = String(value || '').trim();
   return max > 0 ? text.slice(0, max) : text;
@@ -137,6 +142,10 @@ export function validateEcpayConfig(config = getEcpayConfig()) {
   const isProduction = String(process.env.VERCEL_ENV || process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
   if (isProduction && config.env !== 'production') {
     issues.push('ECPAY_ENV must be production in production deployment.');
+  }
+
+  if (isProduction && KNOWN_ECPAY_TEST_MERCHANT_IDS.has(config.merchantId)) {
+    issues.push('ECPAY_MERCHANT_ID appears to be a sandbox/test merchant id in production.');
   }
 
   if (isProduction) {
