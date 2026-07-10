@@ -110,13 +110,11 @@ export default function EcpayTestPage() {
 
         if (!cancelled) {
           setConfig(nextConfig);
-          console.log('[ECPay Test] config loaded', nextConfig);
         }
       } catch (nextError) {
         const message = nextError instanceof Error && nextError.message
           ? nextError.message
           : 'Failed to load ECPay test configuration.';
-        console.error('[ECPay Test] config error', nextError);
         if (!cancelled) setError(message);
       } finally {
         if (!cancelled) setLoading(false);
@@ -146,7 +144,6 @@ export default function EcpayTestPage() {
       }
 
       const order = payload as unknown as CreateOrderResponse;
-      console.log('[ECPay Test] create order success', order);
       window.localStorage.setItem('dongni.ecpay.pendingTrade', order.merchantTradeNo);
 
       const form = document.createElement('form');
@@ -168,7 +165,6 @@ export default function EcpayTestPage() {
       const message = nextError instanceof Error && nextError.message
         ? nextError.message
         : 'Failed to create ECPay order.';
-      console.error('[ECPay Test] create order error', nextError);
       setError(message);
       setSubmitting(false);
     }

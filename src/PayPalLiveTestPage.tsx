@@ -125,21 +125,11 @@ export default function PayPalLiveTestPage() {
 
         if (!cancelled) {
           setConfig(data as LiveConfig);
-          console.log('[PayPal LIVE Test] config loaded', {
-            mode: getStringField(data, 'mode'),
-            maskedClientId: getStringField(data, 'maskedClientId'),
-            hasClientId: Boolean(data.hasClientId),
-            hasClientSecret: Boolean(data.hasClientSecret),
-            amount: getStringField(data, 'amount'),
-            currency: getStringField(data, 'currency'),
-            packageName: getStringField(data, 'packageName')
-          });
         }
       } catch (error) {
         const message = error instanceof Error && error.message
           ? error.message
           : 'Failed to load LIVE PayPal test configuration.';
-        console.error('[PayPal LIVE Test] config error', error);
         if (!cancelled) {
           setBlockingError(message);
         }
@@ -175,7 +165,6 @@ export default function PayPalLiveTestPage() {
       setButtonRendered(false);
 
       const sdkUrl = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(config.clientId)}&currency=${encodeURIComponent(config.currency)}&intent=capture`;
-      console.log('[PayPal LIVE Test] loading SDK', { sdkUrlMasked: sdkUrl.replace(config.clientId, config.maskedClientId) });
 
       try {
         await new Promise<void>((resolve, reject) => {
@@ -220,7 +209,6 @@ export default function PayPalLiveTestPage() {
             tagline: false
           },
           createOrder: async () => {
-            console.log('[PayPal LIVE Test] createOrder requested');
             const response = await fetch('/api/paypal-live-test', {
               method: 'POST',
               headers: {
@@ -237,15 +225,12 @@ export default function PayPalLiveTestPage() {
             const payload = asRecord(await readJsonResponse(response));
             if (!response.ok) {
               const message = parseApiError(payload, 'Failed to create LIVE PayPal order.');
-              console.error('[PayPal LIVE Test] createOrder error', payload);
               throw new Error(message);
             }
 
-            console.log('[PayPal LIVE Test] createOrder success', payload);
             return String(payload.orderId || '');
           },
           onApprove: async (data) => {
-            console.log('[PayPal LIVE Test] onApprove', data);
             try {
               const response = await fetch('/api/paypal-live-test', {
                 method: 'POST',
@@ -258,7 +243,6 @@ export default function PayPalLiveTestPage() {
               const payload = asRecord(await readJsonResponse(response));
               if (!response.ok) {
                 const message = parseApiError(payload, 'Failed to capture LIVE PayPal order.');
-                console.error('[PayPal LIVE Test] capture error', payload);
                 setPaymentResult({
                   status: 'error',
                   message,
@@ -268,7 +252,6 @@ export default function PayPalLiveTestPage() {
                 return;
               }
 
-              console.log('[PayPal LIVE Test] capture success', payload);
               setPaymentResult({
                 status: 'success',
                 message: '付款成功，已完成 LIVE PayPal 測試交易。',
@@ -284,7 +267,6 @@ export default function PayPalLiveTestPage() {
               const message = error instanceof Error && error.message
                 ? error.message
                 : 'Failed to capture LIVE PayPal order.';
-              console.error('[PayPal LIVE Test] capture exception', error);
               setPaymentResult({
                 status: 'error',
                 message,
@@ -293,7 +275,6 @@ export default function PayPalLiveTestPage() {
             }
           },
           onCancel: (data) => {
-            console.warn('[PayPal LIVE Test] payment canceled', data);
             setPaymentResult({
               status: 'cancel',
               message: '使用者已取消付款。',
@@ -304,7 +285,6 @@ export default function PayPalLiveTestPage() {
             const message = error instanceof Error && error.message
               ? error.message
               : 'PayPal LIVE button returned an unknown error.';
-            console.error('[PayPal LIVE Test] button error', error);
             setPaymentResult({
               status: 'error',
               message
@@ -314,13 +294,11 @@ export default function PayPalLiveTestPage() {
 
         if (!cancelled) {
           setButtonRendered(true);
-          console.log('[PayPal LIVE Test] button rendered');
         }
       } catch (error) {
         const message = error instanceof Error && error.message
           ? error.message
           : 'Unable to render PayPal LIVE payment button.';
-        console.error('[PayPal LIVE Test] render error', error);
         if (!cancelled) {
           setBlockingError(message);
         }

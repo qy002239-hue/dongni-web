@@ -124,29 +124,12 @@ function App() {
     paddingBottom: 'calc(var(--composer-height) + 28px)'
   };
 
-  const logReturnReason = useCallback((ifName: string, context: Record<string, unknown> = {}) => {
-    if (!shouldLogChatDebug) return;
-    console.error('[CHAT DEBUG RETURN]', ifName, context);
+  const logReturnReason = useCallback(() => {
+    void shouldLogChatDebug;
   }, [shouldLogChatDebug]);
 
-  const printChatDebug = useCallback((payload: Record<string, unknown>) => {
-    if (!shouldLogChatDebug) return;
-    console.error('========== CHAT DEBUG ==========');
-    console.error('user.id', payload.userId ?? null);
-    console.error('session.id', payload.sessionId ?? null);
-    console.error('conversationSession', payload.conversationSession ?? null);
-    console.error('credits', payload.credits ?? null);
-    console.error('trialDaysRemaining', payload.trialDaysRemaining ?? null);
-    console.error('subscription', payload.subscription ?? null);
-    console.error('canChat', payload.canChat ?? null);
-    console.error('HTTP Status', payload.httpStatus ?? null);
-    console.error('Response Body', payload.responseBody ?? null);
-    console.error('response.error', payload.responseError ?? null);
-    console.error('error.message', payload.errorMessage ?? null);
-    console.error('willRedirectToPlus', payload.willRedirectToPlus ?? false);
-    console.error('redirectReason', payload.redirectReason ?? '');
-    console.error("navigate('/plus') 呼叫位置", payload.navigatePlusCallsite ?? '');
-    console.error('========== END ==========');
+  const printChatDebug = useCallback(() => {
+    void shouldLogChatDebug;
   }, [shouldLogChatDebug]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
@@ -1003,10 +986,6 @@ function App() {
           debugPayload.willRedirectToPlus = true;
           debugPayload.redirectReason = 'conversation-session status===402';
           debugPayload.navigatePlusCallsite = 'src/App.tsx:submit -> conversation-session status===402 branch';
-          console.error("[CHAT DEBUG] navigate('/plus') 呼叫位置", {
-            location: 'src/App.tsx:submit',
-            reason: 'conversation-session status===402'
-          });
         }
       }
 
@@ -1053,21 +1032,7 @@ function App() {
 
       if (debugPayload.willRedirectToPlus) {
         debugPayload.navigatePlusCallsite = 'src/App.tsx:submit/catch plus branch';
-        if (shouldLogChatDebug) {
-          console.error('[CHAT DEBUG] ge() called', {
-            location: 'src/App.tsx:submit/catch',
-            reason: debugPayload.redirectReason
-          });
-          console.error("[CHAT DEBUG] navigate('/plus') 呼叫位置", {
-            location: 'src/App.tsx:submit/catch',
-            reason: debugPayload.redirectReason
-          });
-          console.error("[CHAT DEBUG] router.push('/plus') 呼叫位置", {
-            location: 'src/App.tsx:submit/catch',
-            reason: debugPayload.redirectReason,
-            note: 'react-router-dom does not use router.push in this file'
-          });
-        }
+        void shouldLogChatDebug;
       }
 
       if (!navigator.onLine) {
