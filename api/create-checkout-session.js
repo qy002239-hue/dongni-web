@@ -123,6 +123,10 @@ export default async function handler(req, res) {
       ? error.message
       : 'Unable to create PayPal checkout.';
     if (isAuthError(error)) {
+      console.error('[PAYPAL_CREATE_AUTH_BLOCKED]', {
+        reason: message,
+        hasAuthorizationHeader: Boolean(String(req.headers.authorization || '').trim())
+      });
       return jsonError(res, 401, message);
     }
     return jsonError(res, 500, message);

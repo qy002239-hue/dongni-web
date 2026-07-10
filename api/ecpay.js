@@ -150,6 +150,11 @@ function checkAndMarkDuplicateCallback(payload, source) {
 async function handleConfig(res) {
   const validation = validateEcpayConfig();
   if (!validation.ok) {
+    console.error('[ECPAY_CONFIG_BLOCKED]', {
+      issues: validation.issues,
+      env: validation.config?.env || '',
+      merchantIdMasked: maskSecret(validation.config?.merchantId || '', 4, 2)
+    });
     return jsonError(res, 503, `ECPay test is blocked: ${validation.issues.join(' ')}`);
   }
 
@@ -171,6 +176,11 @@ async function handleConfig(res) {
 async function handleCreateOrder(req, res) {
   const validation = validateEcpayConfig();
   if (!validation.ok) {
+    console.error('[ECPAY_CREATE_ORDER_BLOCKED]', {
+      issues: validation.issues,
+      env: validation.config?.env || '',
+      merchantIdMasked: maskSecret(validation.config?.merchantId || '', 4, 2)
+    });
     return jsonError(res, 503, `ECPay test is blocked: ${validation.issues.join(' ')}`);
   }
 

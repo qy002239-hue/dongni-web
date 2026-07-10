@@ -150,6 +150,12 @@ export default async function handler(req, res) {
     const message = error instanceof Error && error.message
       ? error.message
       : 'Unable to confirm PayPal payment.';
+    if (mapCaptureErrorStatus(error) === 401) {
+      console.error('[PAYPAL_CAPTURE_AUTH_BLOCKED]', {
+        reason: message,
+        hasAuthorizationHeader: Boolean(String(req.headers.authorization || '').trim())
+      });
+    }
     return jsonError(res, mapCaptureErrorStatus(error), message);
   }
 }
