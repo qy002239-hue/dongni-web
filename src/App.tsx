@@ -57,6 +57,25 @@ const DEFAULT_PROVIDER_STATUS: Record<Provider, ProviderStatus> = {
   paypal: { available: true, reason: '' }
 };
 
+function toFriendlyProviderReason(provider: Provider, reason: string) {
+  const text = String(reason || '').trim();
+  if (!text) return provider === 'ecpay' ? 'ECPay 目前暫時無法使用。' : 'PayPal 目前暫時無法使用。';
+
+  const lower = text.toLowerCase();
+  if (lower.includes('sandbox') || lower.includes('test merchant') || lower.includes('invalid_client')) {
+    return provider === 'ecpay'
+      ? 'ECPay 付款服務尚在切換正式設定，請稍後再試。'
+      : 'PayPal 付款服務尚在切換正式設定，請稍後再試。';
+  }
+  if (lower.includes('missing') || lower.includes('required')) {
+    return provider === 'ecpay'
+      ? 'ECPay 付款設定尚未完成。'
+      : 'PayPal 付款設定尚未完成。';
+  }
+
+  return provider === 'ecpay' ? 'ECPay 目前暫時無法使用。' : 'PayPal 目前暫時無法使用。';
+}
+
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -95,6 +114,8 @@ function App() {
   const paypalProcessingOrdersRef = useRef(new Set<string>());
   const [composerHeight, setComposerHeight] = useState(176);
   const userId = user?.id || '';
+  const isProductionClient = import.meta.env.PROD;
+  const shouldLogChatDebug = !isProductionClient;
 
   const googleLoginEnabled = isSupabaseConfigured && Boolean(supabase);
   const isMockSession = accessToken === localE2EToken && isLocalHost();
@@ -104,10 +125,12 @@ function App() {
   };
 
   const logReturnReason = useCallback((ifName: string, context: Record<string, unknown> = {}) => {
+    if (!shouldLogChatDebug) return;
     console.error('[CHAT DEBUG RETURN]', ifName, context);
-  }, []);
+  }, [shouldLogChatDebug]);
 
   const printChatDebug = useCallback((payload: Record<string, unknown>) => {
+    if (!shouldLogChatDebug) return;
     console.error('========== CHAT DEBUG ==========');
     console.error('user.id', payload.userId ?? null);
     console.error('session.id', payload.sessionId ?? null);
@@ -124,7 +147,7 @@ function App() {
     console.error('redirectReason', payload.redirectReason ?? '');
     console.error("navigate('/plus') 呼叫位置", payload.navigatePlusCallsite ?? '');
     console.error('========== END ==========');
-  }, []);
+  }, [shouldLogChatDebug]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const container = messageListRef.current;
@@ -222,6 +245,11 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (isProductionClient && [ROUTES.testLogin, ROUTES.paypalLiveTest, ROUTES.ecpayTest].includes(location.pathname as typeof ROUTES[keyof typeof ROUTES])) {
+      navigate(withE2E(ROUTES.chat), { replace: true });
+      return;
+    }
+
     if (
       location.pathname === ROUTES.authCallback
       || location.pathname === ROUTES.testLogin
@@ -235,7 +263,7 @@ function App() {
     if (location.pathname !== ROUTES.chat) {
       navigate(withE2E(ROUTES.chat), { replace: true });
     }
-  }, [location.pathname, navigate]);
+  }, [isProductionClient, location.pathname, navigate]);
 
   useEffect(() => {
     if (location.pathname !== ROUTES.chat) return;
@@ -696,15 +724,15 @@ function App() {
         const nextStatus: Record<Provider, ProviderStatus> = {
           ecpay: {
             available: providers.includes('ecpay'),
-            reason: String((data.providers as Record<string, unknown> | undefined)?.ecpay && typeof (data.providers as Record<string, unknown>).ecpay === 'object'
+            reason: toFriendlyProviderReason('ecpay', String((data.providers as Record<string, unknown> | undefined)?.ecpay && typeof (data.providers as Record<string, unknown>).ecpay === 'object'
               ? ((data.providers as Record<string, Record<string, unknown>>).ecpay?.reason || '')
-              : '')
+              : ''))
           },
           paypal: {
             available: providers.includes('paypal'),
-            reason: String((data.providers as Record<string, unknown> | undefined)?.paypal && typeof (data.providers as Record<string, unknown>).paypal === 'object'
+            reason: toFriendlyProviderReason('paypal', String((data.providers as Record<string, unknown> | undefined)?.paypal && typeof (data.providers as Record<string, unknown>).paypal === 'object'
               ? ((data.providers as Record<string, Record<string, unknown>>).paypal?.reason || '')
-              : '')
+              : ''))
           }
         };
 
@@ -1097,11 +1125,11 @@ function App() {
     return <FullscreenLoading text="Google 登入處理中..." />;
   }
 
-  if (location.pathname === ROUTES.paypalLiveTest) {
+  if (!isProductionClient && location.pathname === ROUTES.paypalLiveTest) {
     return <PayPalLiveTestPage />;
   }
 
-  if (location.pathname === ROUTES.ecpayTest) {
+  if (!isProductionClient && location.pathname === ROUTES.ecpayTest) {
     return <EcpayTestPage />;
   }
   

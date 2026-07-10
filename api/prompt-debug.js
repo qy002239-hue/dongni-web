@@ -4,7 +4,16 @@ import { buildChatSystemPrompt } from './_chat-prompt.js';
 
 export const config = { runtime: 'nodejs' };
 
+function isProductionDeployment() {
+  const value = String(process.env.VERCEL_ENV || process.env.NODE_ENV || '').trim().toLowerCase();
+  return value === 'production';
+}
+
 export default async function handler(req, res) {
+  if (isProductionDeployment()) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
   if (req.method !== 'GET' && req.method !== 'POST') {
     return methodNotAllowed(res, 'GET, POST');
   }

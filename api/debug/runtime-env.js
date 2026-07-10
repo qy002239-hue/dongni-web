@@ -1,5 +1,10 @@
 export const config = { runtime: 'nodejs' };
 
+function isProductionDeployment() {
+  const value = String(process.env.VERCEL_ENV || process.env.NODE_ENV || '').trim().toLowerCase();
+  return value === 'production';
+}
+
 function applyCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -12,6 +17,10 @@ function normalizeText(value) {
 
 export default async function handler(req, res) {
   applyCorsHeaders(res);
+
+  if (isProductionDeployment()) {
+    return res.status(404).json({ error: 'Not found' });
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(200).json({ ok: true });

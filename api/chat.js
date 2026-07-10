@@ -74,14 +74,6 @@ export default async function handler(req, res) {
     }
     const memoryContext = await getUserMemoryContext(supabase, user.id);
 
-    console.error('========== CHAT PROMPT DEBUG ==========');
-    console.error('promptFilePath', promptBuild.promptFilePath);
-    console.error('sourcePromptSha256', promptBuild.sourcePromptSha256);
-    console.error('finalSystemPromptSha256', promptBuild.finalSystemPromptSha256);
-    console.error('exactMatch', promptBuild.exactMatch);
-    console.error('openrouter.systemPrompt.first500', promptBuild.finalSystemPromptPreview);
-    console.error('========== END CHAT PROMPT DEBUG ==========');
-
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
