@@ -133,6 +133,25 @@ export function validateEcpayConfig(config = getEcpayConfig()) {
   if (!config.returnUrl) issues.push('ECPAY_RETURN_URL is missing.');
   if (!config.notifyUrl) issues.push('ECPAY_NOTIFY_URL is missing.');
   if (!config.publicSiteUrl) issues.push('PUBLIC_SITE_URL is missing.');
+
+  const isProduction = String(process.env.VERCEL_ENV || process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
+  if (isProduction && config.env !== 'production') {
+    issues.push('ECPAY_ENV must be production in production deployment.');
+  }
+
+  if (isProduction) {
+    const expectedOrigin = String(config.publicSiteUrl || '').trim().replace(/\/$/, '');
+    const returnOrigin = String(config.returnUrl || '').trim();
+    const notifyOrigin = String(config.notifyUrl || '').trim();
+
+    if (expectedOrigin && !returnOrigin.startsWith(expectedOrigin)) {
+      issues.push('ECPAY_RETURN_URL must use PUBLIC_SITE_URL origin in production.');
+    }
+    if (expectedOrigin && !notifyOrigin.startsWith(expectedOrigin)) {
+      issues.push('ECPAY_NOTIFY_URL must use PUBLIC_SITE_URL origin in production.');
+    }
+  }
+
   return { ok: issues.length === 0, issues, config };
 }
 

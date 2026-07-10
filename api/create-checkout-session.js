@@ -35,6 +35,11 @@ function createRequestId(userId, planId) {
   return `dongni-${String(userId || '').slice(0, 18)}-${String(planId || '').slice(0, 24)}-${Date.now()}`;
 }
 
+function isAuthError(error) {
+  const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
+  return message.includes('登入') || message.includes('login') || message.includes('token');
+}
+
 export default async function handler(req, res) {
   applyCorsHeaders(req, res);
 
@@ -117,6 +122,9 @@ export default async function handler(req, res) {
     const message = error instanceof Error && error.message
       ? error.message
       : 'Unable to create PayPal checkout.';
+    if (isAuthError(error)) {
+      return jsonError(res, 401, message);
+    }
     return jsonError(res, 500, message);
   }
 }

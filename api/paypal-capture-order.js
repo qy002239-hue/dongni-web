@@ -35,6 +35,16 @@ function getFirstCapture(orderData) {
   return orderData?.purchase_units?.[0]?.payments?.captures?.[0] || null;
 }
 
+function mapCaptureErrorStatus(error) {
+  const message = String(error instanceof Error ? error.message : error || '').toLowerCase();
+  if (message.includes('does not belong')) return 403;
+  if (message.includes('orderid is required')) return 400;
+  if (message.includes('unknown plan')) return 400;
+  if (message.includes('cannot be captured')) return 409;
+  if (message.includes('登入') || message.includes('login') || message.includes('token')) return 401;
+  return 500;
+}
+
 export default async function handler(req, res) {
   applyCorsHeaders(req, res);
 
@@ -140,6 +150,6 @@ export default async function handler(req, res) {
     const message = error instanceof Error && error.message
       ? error.message
       : 'Unable to confirm PayPal payment.';
-    return jsonError(res, 500, message);
+    return jsonError(res, mapCaptureErrorStatus(error), message);
   }
 }
