@@ -187,6 +187,108 @@
   gap: 16px;
 }
 
+.dongni-purchase-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.52);
+}
+
+.dongni-purchase-modal {
+  width: min(420px, 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 18, 26, 0.95);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.dongni-purchase-title {
+  margin: 0;
+  color: #e7e5e4;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.dongni-purchase-subtitle {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dongni-purchase-plan-grid,
+.dongni-purchase-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dongni-purchase-plan,
+.dongni-purchase-provider {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #dbeafe;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 10px 12px;
+}
+
+.dongni-purchase-plan-active,
+.dongni-purchase-provider-active {
+  border-color: rgba(148, 233, 184, 0.7);
+  background: rgba(16, 63, 45, 0.65);
+  color: #dcfce7;
+}
+
+.dongni-purchase-plan:disabled,
+.dongni-purchase-provider:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.dongni-purchase-pay-button,
+.dongni-purchase-close-button {
+  width: 100%;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  padding: 11px 18px;
+}
+
+.dongni-purchase-pay-button {
+  border: 0;
+  background: rgba(245, 245, 244, 0.94);
+  color: #1c1917;
+}
+
+.dongni-purchase-pay-button:disabled {
+  cursor: not-allowed;
+  background: rgba(68, 64, 60, 0.75);
+  color: #a8a29e;
+}
+
+.dongni-purchase-close-button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #d6d3d1;
+}
+
+.dongni-purchase-close-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .dongni-chat-title {
   color: #a8a29e;
   font-size: 16px;

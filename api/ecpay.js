@@ -1,6 +1,9 @@
 import { buildEcpayOrderPayload, createMerchantTradeNo, getEcpayConfig, parseEcpayBody, verifyCheckMacValue, validateEcpayConfig, maskSecret } from './_ecpay.js';
 import { persistEcpayPaymentResult } from './_ecpay-payment-store.js';
 import { jsonError, methodNotAllowed, parseJsonBody } from './_http.js';
+import { getAuthenticatedUser, getSupabaseAdmin } from './_supabase.js';
+import { getPayPalPlan } from './_paypal.js';
+import { grantCreditsForApprovedPayment } from './_payment-grant.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -11,7 +14,7 @@ const callbackSeenMap = new Map();
 function applyCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 function getAction(req) {
@@ -62,6 +65,51 @@ function createSafeCallbackLog(payload, source, verify, merchantTradeCheck, pers
     persistMode: String(persistResult?.mode || ''),
     persistOk: Boolean(persistResult?.ok)
   };
+}
+
+function createSafeGrantLog(payload) {
+  return {
+    source: 'ecpay',
+    merchantTradeNo: normalizePayloadValue(payload, 'MerchantTradeNo').slice(0, 20),
+    tradeNoMasked: maskSecret(normalizePayloadValue(payload, 'TradeNo'), 4, 4),
+    plan: normalizePayloadValue(payload, 'CustomField2').slice(0, 30),
+    userIdMasked: maskSecret(normalizePayloadValue(payload, 'CustomField1'), 4, 4),
+    rtnCode: normalizePayloadValue(payload, 'RtnCode')
+  };
+}
+
+async function grantCreditsForEcpayPayment(payload) {
+  const isPaid = String(payload?.RtnCode || '').trim() === '1';
+  if (!isPaid) {
+    return { ok: true, skipped: true, duplicate: false, creditsGranted: 0 };
+  }
+
+  const userId = normalizePayloadValue(payload, 'CustomField1');
+  const planId = normalizePayloadValue(payload, 'CustomField2');
+  const plan = getPayPalPlan(planId);
+
+  if (!userId || !plan) {
+    return {
+      ok: false,
+      skipped: false,
+      status: 400,
+      error: 'ECPay callback is missing user id or payment plan.'
+    };
+  }
+
+  const orderId = normalizePayloadValue(payload, 'MerchantTradeNo');
+  const captureId = normalizePayloadValue(payload, 'TradeNo') || orderId;
+  const amount = normalizePayloadValue(payload, 'TradeAmt') || normalizePayloadValue(payload, 'TotalAmount') || plan.amount;
+
+  const supabase = getSupabaseAdmin();
+  return grantCreditsForApprovedPayment(supabase, {
+    userId,
+    plan: plan.id,
+    orderId,
+    captureId,
+    amount,
+    currency: 'TWD'
+  });
 }
 
 function buildCallbackFingerprint(payload, source) {
@@ -123,17 +171,43 @@ async function handleCreateOrder(req, res) {
   const body = parseJsonBody(req);
   const ecpayConfig = getEcpayConfig();
   const merchantTradeNo = createMerchantTradeNo('DNE');
+  const requestedPlanId = String(body.plan || '').trim();
+  const requestedPlan = requestedPlanId ? getPayPalPlan(requestedPlanId) : null;
+
+  let userId = '';
+  if (requestedPlanId) {
+    if (!requestedPlan) {
+      return jsonError(res, 400, 'Invalid payment plan.');
+    }
+
+    try {
+      const supabase = getSupabaseAdmin();
+      const user = await getAuthenticatedUser(req, supabase);
+      userId = String(user.id || '').trim();
+    } catch (error) {
+      const message = error instanceof Error && error.message
+        ? error.message
+        : '請先登入。';
+      return jsonError(res, 401, message);
+    }
+  }
+
+  const amount = requestedPlan ? Number(requestedPlan.amount) : (body.amount || 2);
+  const itemName = requestedPlan
+    ? (requestedPlan.id === 'dongni-plus-six-pack' ? '懂妳 Plus 六次包' : '懂妳 Plus 單次')
+    : (body.productName || '懂妳 ECPay 測試付款');
+
   const fields = buildEcpayOrderPayload({
     merchantTradeNo,
-    amount: body.amount || 2,
-    itemName: body.productName || '懂妳 ECPay 測試付款',
+    amount,
+    itemName,
     tradeDesc: body.tradeDesc || 'Dongni ECPay payment test',
     returnUrl: ecpayConfig.notifyUrl,
     orderResultUrl: ecpayConfig.returnUrl,
     clientBackUrl: `${ecpayConfig.publicSiteUrl}/test/ecpay?status=back&merchantTradeNo=${encodeURIComponent(merchantTradeNo)}`,
     choosePayment: 'Credit',
-    customField1: 'dongni',
-    customField2: 'ecpay-test',
+    customField1: userId || 'dongni',
+    customField2: requestedPlan?.id || 'ecpay-test',
     customField3: ecpayConfig.env,
     customField4: merchantTradeNo
   }, ecpayConfig);
@@ -175,10 +249,19 @@ async function handleNotify(req, res) {
   }
 
   const persistResult = await persistEcpayPaymentResult(payload, 'notify');
+  const grantResult = await grantCreditsForEcpayPayment(payload);
   const duplicate = Boolean(dedupe.duplicate || persistResult?.duplicate);
   const safeLog = createSafeCallbackLog(payload, 'notify', verify, merchantTradeCheck, persistResult);
   safeLog.duplicate = duplicate;
   console.log('[ECPAY_CALLBACK]', safeLog);
+
+  if (!grantResult.ok) {
+    console.error('[ECPAY_GRANT_ERROR]', {
+      ...createSafeGrantLog(payload),
+      error: String(grantResult.error || 'Failed to grant credits for ECPay callback.')
+    });
+    return res.status(500).send('0|Grant Error');
+  }
 
   if (persistResult?.mode) {
     res.setHeader('X-Dongni-Persist-Mode', String(persistResult.mode));
@@ -197,10 +280,18 @@ async function handleReturn(req, res) {
   const success = String(payload?.RtnCode || '') === '1';
 
   const persistResult = await persistEcpayPaymentResult(payload, 'return');
+  const grantResult = await grantCreditsForEcpayPayment(payload);
   const duplicate = Boolean(dedupe.duplicate || persistResult?.duplicate);
   const safeLog = createSafeCallbackLog(payload, 'return', verify, merchantTradeCheck, persistResult);
   safeLog.duplicate = duplicate;
   console.log('[ECPAY_CALLBACK]', safeLog);
+
+  if (!grantResult.ok) {
+    console.error('[ECPAY_GRANT_ERROR]', {
+      ...createSafeGrantLog(payload),
+      error: String(grantResult.error || 'Failed to grant credits for ECPay return callback.')
+    });
+  }
 
   const status = !merchantTradeCheck.ok
     ? 'merchant-trade-no-error'
@@ -218,7 +309,9 @@ async function handleReturn(req, res) {
     checksum: verify.ok ? 'ok' : 'failed',
     merchantTradeNoCheck: merchantTradeCheck.ok ? 'ok' : 'failed',
     callbackSource: 'return',
-    duplicate: duplicate ? 'true' : 'false'
+    duplicate: duplicate ? 'true' : 'false',
+    granted: grantResult.ok && !grantResult.duplicate ? 'true' : 'false',
+    grantDuplicate: grantResult.ok && grantResult.duplicate ? 'true' : 'false'
   });
 
   const targetUrl = `${ecpayConfig.publicSiteUrl}/payment/result?${params.toString()}`;

@@ -44,6 +44,8 @@ const DEFAULT_MESSAGES: ChatMessage[] = [
 ];
 
 const welcomeConsentKey = 'dongni_welcome_disclaimer_ack';
+type Provider = 'ecpay' | 'paypal';
+type PlanId = 'dongni-plus-single' | 'dongni-plus-six-pack';
 
 function App() {
   const location = useLocation();
@@ -62,6 +64,11 @@ function App() {
   const [welcomeConfirmed, setWelcomeConfirmed] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
+  const [paymentCountry, setPaymentCountry] = useState('');
+  const [availableProviders, setAvailableProviders] = useState<Provider[]>(['ecpay', 'paypal']);
+  const [selectedProvider, setSelectedProvider] = useState<Provider>('ecpay');
+  const [selectedPlan, setSelectedPlan] = useState<PlanId>('dongni-plus-single');
+  const [paymentOptionsLoading, setPaymentOptionsLoading] = useState(false);
 
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -651,19 +658,111 @@ function App() {
     setPurchaseOpen(false);
   };
 
+  useEffect(() => {
+    if (!purchaseOpen) return;
+
+    let canceled = false;
+
+    const loadPaymentOptions = async () => {
+      setPaymentOptionsLoading(true);
+
+      try {
+        const response = await fetch('/api/payment-options');
+        const raw = await response.text();
+        let data: Record<string, unknown> = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          data = {};
+        }
+
+        const providers = Array.isArray(data.availableProviders)
+          ? data.availableProviders.filter((item): item is Provider => item === 'ecpay' || item === 'paypal')
+          : [];
+
+        const fallbackProviders: Provider[] = providers.length ? providers : ['ecpay', 'paypal'];
+        const recommended = data.recommendedProvider === 'paypal' ? 'paypal' : 'ecpay';
+        const nextProvider = fallbackProviders.includes(recommended)
+          ? recommended
+          : fallbackProviders[0];
+
+        if (!canceled) {
+          setAvailableProviders(fallbackProviders);
+          setSelectedProvider(nextProvider);
+          setPaymentCountry(String(data.country || '').trim().toUpperCase());
+        }
+      } catch {
+        if (!canceled) {
+          setAvailableProviders(['ecpay', 'paypal']);
+          setSelectedProvider('ecpay');
+          setPaymentCountry('');
+        }
+      } finally {
+        if (!canceled) {
+          setPaymentOptionsLoading(false);
+        }
+      }
+    };
+
+    void loadPaymentOptions();
+
+    return () => {
+      canceled = true;
+    };
+  }, [purchaseOpen]);
+
+  const submitEcpayOrderForm = useCallback((payload: Record<string, unknown>) => {
+    const actionUrl = String(payload.actionUrl || '').trim();
+    const method = String(payload.method || 'POST').trim().toUpperCase();
+    const fields = payload.fields && typeof payload.fields === 'object'
+      ? payload.fields as Record<string, unknown>
+      : null;
+
+    if (!actionUrl || !fields) {
+      throw new Error('ECPay checkout response is incomplete.');
+    }
+
+    const form = document.createElement('form');
+    form.method = method === 'GET' ? 'GET' : 'POST';
+    form.action = actionUrl;
+    form.style.display = 'none';
+
+    for (const [key, value] of Object.entries(fields)) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = String(value ?? '');
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+  }, []);
+
   const startCheckout = async () => {
     if (!accessToken || isCreatingCheckout) return;
 
     setIsCreatingCheckout(true);
 
     try {
-      const response = await fetch('/api/create-checkout-session', {
+      if (accessToken === 'local-e2e-token' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+        const marker = selectedProvider === 'paypal' ? 'paypal-success' : 'ecpay-success';
+        window.location.assign(`/?e2e=1&payment=${marker}&token=local-${selectedPlan}`);
+        return;
+      }
+
+      const endpoint = selectedProvider === 'ecpay' ? '/api/ecpay' : '/api/create-checkout-session';
+      const body = selectedProvider === 'ecpay'
+        ? { action: 'create-order', plan: selectedPlan }
+        : { plan: selectedPlan };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`
         },
-        body: JSON.stringify({ plan: 'dongni-plus-single' })
+        body: JSON.stringify(body)
       });
 
       const raw = await response.text();
@@ -672,6 +771,16 @@ function App() {
         data = raw ? JSON.parse(raw) : {};
       } catch {
         data = { error: raw || '付款建立失敗，請稍後再試。' };
+      }
+
+      if (selectedProvider === 'ecpay') {
+        if (!response.ok) {
+          showToast(String(data.error || 'ECPay 付款建立失敗，請稍後再試。'));
+          setIsCreatingCheckout(false);
+          return;
+        }
+        submitEcpayOrderForm(data);
+        return;
       }
 
       if (!response.ok || !data.url) {
@@ -1070,14 +1179,64 @@ function App() {
         {purchaseOpen ? (
           <div className="dongni-purchase-modal-backdrop" onClick={closePurchaseModal}>
             <section className="dongni-purchase-modal" onClick={(event) => event.stopPropagation()}>
-              <h2 className="dongni-purchase-title">200 元 / 次</h2>
+              <h2 className="dongni-purchase-title">購買次數</h2>
+              <p className="dongni-purchase-subtitle">
+                {paymentCountry === 'TW'
+                  ? '偵測到台灣地區，預設使用 ECPay。'
+                  : (paymentCountry ? `偵測地區：${paymentCountry}，預設使用 PayPal。` : '無法判定地區，預設使用 ECPay。')}
+              </p>
+
+              <div className="dongni-purchase-plan-grid" role="tablist" aria-label="付款方案">
+                <button
+                  type="button"
+                  className={`dongni-purchase-plan ${selectedPlan === 'dongni-plus-single' ? 'dongni-purchase-plan-active' : ''}`}
+                  onClick={() => setSelectedPlan('dongni-plus-single')}
+                  disabled={isCreatingCheckout}
+                >
+                  NT$200 / 1 次
+                </button>
+                <button
+                  type="button"
+                  className={`dongni-purchase-plan ${selectedPlan === 'dongni-plus-six-pack' ? 'dongni-purchase-plan-active' : ''}`}
+                  onClick={() => setSelectedPlan('dongni-plus-six-pack')}
+                  disabled={isCreatingCheckout}
+                >
+                  NT$1000 / 6 次
+                </button>
+              </div>
+
+              <div className="dongni-purchase-provider-grid" role="tablist" aria-label="付款方式">
+                {availableProviders.includes('ecpay') ? (
+                  <button
+                    type="button"
+                    className={`dongni-purchase-provider ${selectedProvider === 'ecpay' ? 'dongni-purchase-provider-active' : ''}`}
+                    onClick={() => setSelectedProvider('ecpay')}
+                    disabled={isCreatingCheckout || paymentOptionsLoading}
+                  >
+                    ECPay（台灣）
+                  </button>
+                ) : null}
+                {availableProviders.includes('paypal') ? (
+                  <button
+                    type="button"
+                    className={`dongni-purchase-provider ${selectedProvider === 'paypal' ? 'dongni-purchase-provider-active' : ''}`}
+                    onClick={() => setSelectedProvider('paypal')}
+                    disabled={isCreatingCheckout || paymentOptionsLoading}
+                  >
+                    PayPal（海外）
+                  </button>
+                ) : null}
+              </div>
+
               <button
                 type="button"
                 className="dongni-purchase-pay-button"
-                disabled={isCreatingCheckout}
+                disabled={isCreatingCheckout || paymentOptionsLoading}
                 onClick={() => void startCheckout()}
               >
-                {isCreatingCheckout ? '處理中...' : '使用 PayPal 付款'}
+                {isCreatingCheckout
+                  ? '處理中...'
+                  : (selectedProvider === 'ecpay' ? '前往 ECPay 付款' : '前往 PayPal 付款')}
               </button>
               <button
                 type="button"
