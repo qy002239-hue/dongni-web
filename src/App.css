@@ -4,19 +4,23 @@
   box-sizing: border-box;
 }
 
+:root {
+  --site-footer-space: 92px;
+}
+
 .dongni-ocean-page {
   --mobile-bottom-inset: 0px;
-  height: 100dvh;
-  min-height: 100dvh;
+  position: relative;
+  isolation: isolate;
   width: 100%;
+  min-height: 100dvh;
+  height: 100dvh;
   margin: 0;
+  padding: 20px 48px calc(20px + var(--site-footer-space));
   overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 20px 48px;
-  position: relative;
-  isolation: isolate;
 }
 
 .dongni-ocean-page::before {
@@ -41,9 +45,9 @@
 .dongni-chat-frame {
   width: 100%;
   max-width: 1180px;
-  height: calc(100dvh - 40px);
+  height: calc(100dvh - 40px - var(--site-footer-space));
   min-height: 0;
-  max-height: calc(100dvh - 40px);
+  max-height: calc(100dvh - 40px - var(--site-footer-space));
   overflow: hidden;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -497,7 +501,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
+  padding: 32px 20px calc(32px + var(--site-footer-space));
 }
 
 .welcome-panel {
@@ -665,7 +669,7 @@
 
   .dongni-ocean-page {
     --mobile-bottom-inset: max(env(safe-area-inset-bottom), var(--keyboard-inset, 0px));
-    padding: 12px;
+    padding: 12px 12px calc(12px + var(--site-footer-space));
   }
 
   .dongni-chat-frame {
@@ -730,7 +734,7 @@
   }
 
   .welcome-screen {
-    padding: 14px;
+    padding: 14px 14px calc(14px + var(--site-footer-space));
     align-items: flex-start;
   }
 

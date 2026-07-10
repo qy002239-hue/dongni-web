@@ -6,6 +6,8 @@ import './App.css';
 import EcpayTestPage from './EcpayTestPage';
 import PaymentResultPage from './PaymentResultPage';
 import PayPalLiveTestPage from './PayPalLiveTestPage';
+import { PublicPage, SiteFooter } from './pages/PublicPages';
+import { getPublicPageKey, getPublicPageMeta } from './pages/public-page-data';
 import { FullscreenLoading } from './lib/loading';
 import { useToast } from './lib/use-toast';
 import { toErrorMessage } from './lib/errors';
@@ -116,6 +118,7 @@ function App() {
   const userId = user?.id || '';
   const isProductionClient = import.meta.env.PROD;
   const shouldLogChatDebug = !isProductionClient;
+  const publicPageKey = getPublicPageKey(location.pathname);
 
   const googleLoginEnabled = isSupabaseConfigured && Boolean(supabase);
   const isMockSession = accessToken === localE2EToken && isLocalHost();
@@ -228,6 +231,23 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const meta = getPublicPageMeta(location.pathname);
+    document.title = meta.title;
+
+    let descriptionTag = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!descriptionTag) {
+      descriptionTag = document.createElement('meta');
+      descriptionTag.name = 'description';
+      document.head.appendChild(descriptionTag);
+    }
+    descriptionTag.content = meta.description;
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (publicPageKey) {
+      return;
+    }
+
     if (isProductionClient && [ROUTES.testLogin, ROUTES.paypalLiveTest, ROUTES.ecpayTest].includes(location.pathname as typeof ROUTES[keyof typeof ROUTES])) {
       navigate(withE2E(ROUTES.chat), { replace: true });
       return;
@@ -246,7 +266,7 @@ function App() {
     if (location.pathname !== ROUTES.chat) {
       navigate(withE2E(ROUTES.chat), { replace: true });
     }
-  }, [isProductionClient, location.pathname, navigate]);
+  }, [isProductionClient, location.pathname, navigate, publicPageKey]);
 
   useEffect(() => {
     if (location.pathname !== ROUTES.chat) return;
@@ -1110,6 +1130,10 @@ function App() {
     return <FullscreenLoading text="Google 登入處理中..." />;
   }
 
+  if (publicPageKey) {
+    return <PublicPage pageKey={publicPageKey} />;
+  }
+
   if (!isProductionClient && location.pathname === ROUTES.paypalLiveTest) {
     return <PayPalLiveTestPage />;
   }
@@ -1128,75 +1152,79 @@ function App() {
 
   if (!user) {
     return (
-      <main className="welcome-screen">
-        <section className="welcome-panel">
-          <p className="welcome-kicker">懂妳・情緒陪伴空間</p>
-          <h1>先讓心，慢慢落地。</h1>
-          <p className="welcome-subtitle">
-            這裡不是諮商，也不會替妳做人生決定。
-            <br />
-            這裡只是陪妳，把混亂說成一句句可以呼吸的話。
-          </p>
-
-          <div className="welcome-highlights" role="list" aria-label="Welcome highlights">
-            <article className="welcome-card" role="listitem">
-              <h2>安靜回覆</h2>
-              <p>不用整理好才來，想到哪裡就說到哪裡。</p>
-            </article>
-            <article className="welcome-card" role="listitem">
-              <h2>私密對話</h2>
-              <p>登入後進入妳專屬的對話記錄與節奏。</p>
-            </article>
-            <article className="welcome-card" role="listitem">
-              <h2>有限陪伴</h2>
-              <p>30 分鐘無輸入會結束，避免長時間失焦。</p>
-            </article>
-          </div>
-
-          <div className="welcome-disclaimer">
-            <p className="welcome-disclaimer-title">使用前提醒</p>
-            <p>
-              懂妳提供情緒陪伴，不取代專業醫療或心理治療。
-              若妳正處於緊急危險或有自傷風險，請立即聯絡當地緊急服務。
+      <>
+        <main className="welcome-screen">
+          <section className="welcome-panel">
+            <p className="welcome-kicker">懂妳・情緒陪伴空間</p>
+            <h1>先讓心，慢慢落地。</h1>
+            <p className="welcome-subtitle">
+              這裡不是諮商，也不會替妳做人生決定。
+              <br />
+              這裡只是陪妳，把混亂說成一句句可以呼吸的話。
             </p>
-            <label className="welcome-consent" htmlFor="welcome-consent-checkbox">
-              <input
-                id="welcome-consent-checkbox"
-                type="checkbox"
-                checked={welcomeConfirmed}
-                onChange={onToggleWelcomeConfirmed}
-              />
-              <span>我已了解並同意以上提醒。</span>
-            </label>
-          </div>
 
-          {toast.visible ? <p role="alert" className="welcome-alert">{toast.message}</p> : null}
+            <div className="welcome-highlights" role="list" aria-label="Welcome highlights">
+              <article className="welcome-card" role="listitem">
+                <h2>安靜回覆</h2>
+                <p>不用整理好才來，想到哪裡就說到哪裡。</p>
+              </article>
+              <article className="welcome-card" role="listitem">
+                <h2>私密對話</h2>
+                <p>登入後進入妳專屬的對話記錄與節奏。</p>
+              </article>
+              <article className="welcome-card" role="listitem">
+                <h2>有限陪伴</h2>
+                <p>30 分鐘無輸入會結束，避免長時間失焦。</p>
+              </article>
+            </div>
 
-          <button
-            onClick={loginWithGoogle}
-            className="auth-primary"
-            type="button"
-            disabled={!googleLoginEnabled || !welcomeConfirmed}
-          >
-            {googleLoginEnabled ? '同意後，使用 Google 登入' : 'Google 登入尚未啟用'}
-          </button>
-          {!welcomeConfirmed ? (
-            <p className="welcome-hint">請先勾選同意提醒，才能開始登入。</p>
-          ) : null}
+            <div className="welcome-disclaimer">
+              <p className="welcome-disclaimer-title">使用前提醒</p>
+              <p>
+                懂妳提供情緒陪伴，不取代專業醫療或心理治療。
+                若妳正處於緊急危險或有自傷風險，請立即聯絡當地緊急服務。
+              </p>
+              <label className="welcome-consent" htmlFor="welcome-consent-checkbox">
+                <input
+                  id="welcome-consent-checkbox"
+                  type="checkbox"
+                  checked={welcomeConfirmed}
+                  onChange={onToggleWelcomeConfirmed}
+                />
+                <span>我已了解並同意以上提醒。</span>
+              </label>
+            </div>
 
-          {isLocalHost() ? (
-            <button onClick={activateLocalTestLogin} className="auth-secondary" type="button">
-              本機測試登入
+            {toast.visible ? <p role="alert" className="welcome-alert">{toast.message}</p> : null}
+
+            <button
+              onClick={loginWithGoogle}
+              className="auth-primary"
+              type="button"
+              disabled={!googleLoginEnabled || !welcomeConfirmed}
+            >
+              {googleLoginEnabled ? '同意後，使用 Google 登入' : 'Google 登入尚未啟用'}
             </button>
-          ) : null}
-        </section>
-      </main>
+            {!welcomeConfirmed ? (
+              <p className="welcome-hint">請先勾選同意提醒，才能開始登入。</p>
+            ) : null}
+
+            {isLocalHost() ? (
+              <button onClick={activateLocalTestLogin} className="auth-secondary" type="button">
+                本機測試登入
+              </button>
+            ) : null}
+          </section>
+        </main>
+        <SiteFooter />
+      </>
     );
   }
 
   return (
-    <div className="dongni-ocean-page">
-      <div className="dongni-chat-frame">
+    <>
+      <div className="dongni-ocean-page">
+        <div className="dongni-chat-frame">
         <aside className="dongni-conversation-sidebar">
           <button type="button" className="dongni-new-conversation" onClick={createNewConversation}>
             開始新對話
@@ -1382,7 +1410,9 @@ function App() {
         </form>
         </main>
       </div>
-    </div>
+      </div>
+      <SiteFooter />
+    </>
   );
 }
 
