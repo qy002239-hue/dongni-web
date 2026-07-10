@@ -686,9 +686,20 @@ function App() {
     if (!purchaseOpen) return;
 
     let canceled = false;
+    let inFlight = false;
 
-    const loadPaymentOptions = async () => {
-      setPaymentOptionsLoading(true);
+    const unavailableStatus: Record<Provider, ProviderStatus> = {
+      ecpay: { available: false, reason: '付款方式狀態暫時無法取得，請稍後再試。' },
+      paypal: { available: false, reason: '付款方式狀態暫時無法取得，請稍後再試。' }
+    };
+
+    const loadPaymentOptions = async (silent = false) => {
+      if (inFlight) return;
+      inFlight = true;
+
+      if (!silent) {
+        setPaymentOptionsLoading(true);
+      }
 
       try {
         const response = await fetch('/api/payment-options');
@@ -732,22 +743,29 @@ function App() {
         }
       } catch {
         if (!canceled) {
-          setProviderStatus(DEFAULT_PROVIDER_STATUS);
+          setProviderStatus(unavailableStatus);
           setSelectedProvider('ecpay');
           setPaymentCountry('');
-          setPurchaseError('付款方式載入失敗，請稍後再試。');
+          if (!silent) {
+            setPurchaseError('付款方式載入失敗，請稍後再試。');
+          }
         }
       } finally {
-        if (!canceled) {
+        inFlight = false;
+        if (!canceled && !silent) {
           setPaymentOptionsLoading(false);
         }
       }
     };
 
     void loadPaymentOptions();
+    const refreshTimer = window.setInterval(() => {
+      void loadPaymentOptions(true);
+    }, 5000);
 
     return () => {
       canceled = true;
+      window.clearInterval(refreshTimer);
     };
   }, [purchaseOpen]);
 
