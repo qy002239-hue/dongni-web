@@ -1,4 +1,5 @@
 import { ROUTES } from '../lib/routes';
+import { getSupportContactEmail } from '../lib/env';
 
 export type PageKey = 'about' | 'contact' | 'terms' | 'privacy' | 'pricing' | 'purchase' | 'refund';
 
@@ -20,6 +21,8 @@ export type PageConfig = {
 };
 
 export const PAGE_ORDER: PageKey[] = ['about', 'contact', 'terms', 'privacy', 'pricing', 'purchase', 'refund'];
+
+const supportContactEmail = getSupportContactEmail();
 
 export const PUBLIC_PAGES: Record<PageKey, PageConfig> = {
   about: {
@@ -47,18 +50,45 @@ export const PUBLIC_PAGES: Record<PageKey, PageConfig> = {
   },
   contact: {
     title: '聯絡我們',
-    description: '目前沒有內建聯絡表單；若遇到登入、付款、帳務或系統問題，請透過既有正式聯絡管道處理。',
+    description: '如果你在使用懂妳時遇到登入、付款或帳號相關問題，可以透過本頁提供的方式聯絡我們。',
     eyebrow: 'Contact',
-    intro: '目前網站沒有公開的站內客服表單，也沒有額外的聊天客服模組。',
+    intro: '不論是登入異常、付款後次數未更新，或是帳號與服務建議，我們都歡迎你來信說明。',
     sections: [
       {
-        title: '遇到這些情況時',
-        paragraphs: ['你可以用這個頁面確認網站目前的服務範圍，再把需要處理的交易或登入問題交給維護者。'],
+        title: '常見需要協助的情況',
+        paragraphs: ['如果你遇到以下情況，建議直接聯絡我們，我們會協助你確認並處理。'],
         bullets: [
-          'Google 登入失敗或 OAuth 轉址異常。',
-          'ECPay / PayPal 付款完成但次數未更新。',
-          '看到付款按鈕提示供應商暫時不可用。',
-          '想確認交易紀錄、訂單編號或加值狀態。'
+          '無法登入。',
+          'Google 登入異常。',
+          '付款成功但次數沒有更新。',
+          '帳號問題。',
+          '服務建議。',
+          '其他使用上的問題。'
+        ]
+      },
+      {
+        title: '聯絡方式',
+        paragraphs: [
+          `Email：${supportContactEmail}`,
+          '目前請以 Email 聯絡，我們會依來信內容協助處理。'
+        ]
+      },
+      {
+        title: '來信時建議提供',
+        paragraphs: ['若是付款問題，建議在來信中附上以下資訊，能加快我們的確認速度。'],
+        bullets: [
+          '使用帳號',
+          '付款時間',
+          '金額',
+          '訂單編號（若有）',
+          '問題描述'
+        ]
+      },
+      {
+        title: '回覆時間',
+        paragraphs: [
+          '一般於 1～3 個工作天內回覆。',
+          '若遇到連續假期或付款平台查核流程，回覆時間可能略有延長。'
         ]
       }
     ],

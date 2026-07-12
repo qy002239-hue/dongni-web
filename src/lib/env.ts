@@ -12,6 +12,11 @@ function hasValue(key: string): boolean {
   return String(import.meta.env[key] || '').trim().length > 0;
 }
 
+export function getSupportContactEmail(): string {
+  const configuredEmail = String(import.meta.env.VITE_SUPPORT_EMAIL || '').trim();
+  return configuredEmail || 'support@your-domain.com';
+}
+
 export function validateClientEnv() {
   const missing = REQUIRED_CLIENT_ENV.filter((item) => !hasValue(item.key));
 
